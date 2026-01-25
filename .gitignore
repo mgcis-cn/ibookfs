@@ -26,7 +26,9 @@ go.work.sum
 
 # env file
 .env
+config.yaml
+ibookfs.db
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
