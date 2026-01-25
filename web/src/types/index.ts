@@ -100,3 +100,34 @@ export interface Toast {
   message: string
   duration?: number
 }
+
+// Auth Types
+export interface User {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  createdAt: string
+}
+
+export interface AuthResponse {
+  user: User
+  token: string
+}
+
+export interface SendCodeRequest {
+  email: string
+  type?: 'login' | 'register'
+}
+
+export interface LoginRequest {
+  email: string
+  code: string
+}
+
+export interface RegisterRequest {
+  firstName: string
+  lastName: string
+  email: string
+  code: string
+}

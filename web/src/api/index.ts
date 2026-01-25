@@ -13,11 +13,16 @@
 
 import type {
   ApiResponse,
+  AuthResponse,
   Book,
   BookQuery,
+  LoginRequest,
   PaginatedResponse,
   Photo,
+  RegisterRequest,
+  SendCodeRequest,
   Settings,
+  User,
 } from '@/types'
 import { mockBooks, mockPhotos, mockSettings, delay, getPhotosByBookId } from './mockData'
 
@@ -382,6 +387,185 @@ export async function updateSettings(
   }
 }
 
+// ====================
+// Auth APIs
+// ====================
+
+/**
+ * Send verification code
+ *
+ * TODO: Replace with POST /api/auth/send-code
+ */
+export async function sendCode(
+  data: SendCodeRequest
+): Promise<ApiResponse<{ message: string }>> {
+  await delay(500)
+
+  // Mock: simulate rate limiting (60 seconds)
+  // In real implementation, this would be handled by the backend
+  const lastSent = localStorage.getItem(`lastCodeSent_${data.email}`)
+  if (lastSent) {
+    const elapsed = Date.now() - parseInt(lastSent)
+    if (elapsed < 60000) {
+      const remaining = Math.ceil((60000 - elapsed) / 1000)
+      return {
+        success: false,
+        data: { message: '' },
+        message: `请等待 ${remaining} 秒后重新发送`,
+      }
+    }
+  }
+
+  localStorage.setItem(`lastCodeSent_${data.email}`, Date.now().toString())
+
+  // Mock: Store a verification code (in real app, this goes to email)
+  // For demo purposes: use '123456' as the valid code
+  localStorage.setItem(`verificationCode_${data.email}`, '123456')
+
+  return {
+    success: true,
+    data: { message: '验证码已发送' },
+  }
+}
+
+/**
+ * Login with email and verification code
+ *
+ * TODO: Replace with POST /api/auth/login
+ */
+export async function login(
+  data: LoginRequest
+): Promise<ApiResponse<AuthResponse>> {
+  await delay(600)
+
+  // Mock: verify the code
+  const storedCode = localStorage.getItem(`verificationCode_${data.email}`)
+  if (!storedCode || storedCode !== data.code) {
+    return {
+      success: false,
+      data: {} as AuthResponse,
+      message: '验证码错误或已过期',
+    }
+  }
+
+  // Mock: create user session
+  const authResponse: AuthResponse = {
+    user: {
+      id: 'user_1',
+      email: data.email,
+      firstName: '张',
+      lastName: '三',
+      createdAt: new Date().toISOString(),
+    },
+    token: 'mock_token_' + Date.now(),
+  }
+
+  // Store auth state
+  localStorage.setItem('authToken', authResponse.token)
+  localStorage.setItem('currentUser', JSON.stringify(authResponse.user))
+
+  return {
+    success: true,
+    data: authResponse,
+  }
+}
+
+/**
+ * Register with name, email and verification code
+ *
+ * TODO: Replace with POST /api/auth/register
+ */
+export async function register(
+  data: RegisterRequest
+): Promise<ApiResponse<AuthResponse>> {
+  await delay(700)
+
+  // Mock: verify the code
+  const storedCode = localStorage.getItem(`verificationCode_${data.email}`)
+  if (!storedCode || storedCode !== data.code) {
+    return {
+      success: false,
+      data: {} as AuthResponse,
+      message: '验证码错误或已过期',
+    }
+  }
+
+  // Mock: check if email already exists
+  const existingUsers = JSON.parse(localStorage.getItem('users') || '[]')
+  if (existingUsers.some((u: { email: string }) => u.email === data.email)) {
+    return {
+      success: false,
+      data: {} as AuthResponse,
+      message: '该邮箱已被注册',
+    }
+  }
+
+  // Mock: create new user
+  const newUser = {
+    id: 'user_' + Date.now(),
+    email: data.email,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    createdAt: new Date().toISOString(),
+  }
+
+  existingUsers.push(newUser)
+  localStorage.setItem('users', JSON.stringify(existingUsers))
+
+  const authResponse: AuthResponse = {
+    user: newUser,
+    token: 'mock_token_' + Date.now(),
+  }
+
+  // Store auth state
+  localStorage.setItem('authToken', authResponse.token)
+  localStorage.setItem('currentUser', JSON.stringify(authResponse.user))
+
+  return {
+    success: true,
+    data: authResponse,
+  }
+}
+
+/**
+ * Logout current user
+ *
+ * TODO: Replace with POST /api/auth/logout
+ */
+export async function logout(): Promise<ApiResponse<void>> {
+  await delay(200)
+
+  localStorage.removeItem('authToken')
+  localStorage.removeItem('currentUser')
+
+  return {
+    success: true,
+    data: undefined,
+  }
+}
+
+/**
+ * Get current user
+ *
+ * TODO: Replace with GET /api/auth/me
+ */
+export async function getCurrentUser(): Promise<ApiResponse<User | null>> {
+  await delay(150)
+
+  const userStr = localStorage.getItem('currentUser')
+  if (!userStr) {
+    return {
+      success: true,
+      data: null,
+    }
+  }
+
+  return {
+    success: true,
+    data: JSON.parse(userStr),
+  }
+}
+
 // Export API object for convenient importing
 export const api = {
   // Books
@@ -400,4 +584,11 @@ export const api = {
   // Settings
   getSettings,
   updateSettings,
+
+  // Auth
+  sendCode,
+  login,
+  register,
+  logout,
+  getCurrentUser,
 }

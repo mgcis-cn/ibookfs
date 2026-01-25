@@ -1,16 +1,16 @@
 <template>
-  <div class="app" :class="{ 'mobile': isMobile }">
+  <div class="app" :class="{ 'mobile': isMobile, 'no-nav': !showNavigation }">
     <!-- Desktop Sidebar -->
-    <aside v-if="!isMobile" class="sidebar">
+    <aside v-if="!isMobile && showNavigation" class="sidebar">
       <div class="sidebar-header">
-        <h1 class="sidebar-logo">
+        <router-link to="/library" class="sidebar-logo">
           <BookOpen :size="24" />
           <span>iBookFS</span>
-        </h1>
+        </router-link>
       </div>
 
       <nav class="sidebar-nav">
-        <router-link to="/" class="nav-item" :class="{ active: currentRoute === '/' }">
+        <router-link to="/library" class="nav-item" :class="{ active: currentRoute === '/library' }">
           <Library :size="20" />
           <span>书架</span>
         </router-link>
@@ -23,19 +23,19 @@
       <div class="sidebar-footer">
         <div class="user-profile">
           <User :size="20" />
-          <span>用户</span>
+          <span>{{ userDisplayName }}</span>
         </div>
       </div>
     </aside>
 
     <!-- Main Content -->
-    <main class="main-content">
+    <main class="main-content" :class="{ 'full-width': !showNavigation }">
       <router-view />
     </main>
 
     <!-- Mobile Bottom Navigation -->
-    <nav v-if="isMobile" class="bottom-nav">
-      <router-link to="/" class="bottom-nav-item" :class="{ active: currentRoute === '/' }">
+    <nav v-if="isMobile && showNavigation" class="bottom-nav">
+      <router-link to="/library" class="bottom-nav-item" :class="{ active: currentRoute === '/library' }">
         <Library :size="24" />
         <span>书架</span>
       </router-link>
@@ -77,6 +77,20 @@ const toastStore = useToastStore()
 
 const currentRoute = computed(() => route.path)
 const toasts = computed(() => toastStore.toasts)
+
+// Public routes that don't show navigation
+const publicRoutes = ['/', '/login', '/register']
+const showNavigation = computed(() => !publicRoutes.includes(currentRoute.value))
+
+// Get user display name from localStorage
+const userDisplayName = computed(() => {
+  const userStr = localStorage.getItem('currentUser')
+  if (userStr) {
+    const user = JSON.parse(userStr)
+    return user.firstName || '用户'
+  }
+  return '用户'
+})
 
 const isMobile = ref(false)
 const checkMobile = () => {
@@ -130,6 +144,12 @@ onUnmounted(() => {
   font-size: var(--text-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
+  text-decoration: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.sidebar-logo:hover {
+  opacity: 0.9;
 }
 
 .sidebar-nav {
@@ -181,6 +201,10 @@ onUnmounted(() => {
   flex: 1;
   margin-left: 240px;
   min-height: 100vh;
+}
+
+.main-content.full-width {
+  margin-left: 0;
 }
 
 .app.mobile .main-content {

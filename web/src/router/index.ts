@@ -1,8 +1,29 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
+  // Public pages
   {
     path: '/',
+    name: 'Landing',
+    component: () => import('@/pages/LandingPage.vue'),
+    meta: { title: 'iBookFS - 将纸质书籍转化为数字资产' },
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/pages/LoginPage.vue'),
+    meta: { title: '登录 - iBookFS' },
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/pages/RegisterPage.vue'),
+    meta: { title: '注册 - iBookFS' },
+  },
+
+  // App pages (require authentication)
+  {
+    path: '/library',
     name: 'Library',
     component: () => import('@/pages/LibraryPage.vue'),
     meta: { title: '我的书架' },
@@ -25,6 +46,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/pages/SettingsPage.vue'),
     meta: { title: '设置' },
   },
+
+  // Catch all - redirect to landing
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
