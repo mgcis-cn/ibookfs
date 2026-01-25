@@ -49,16 +49,22 @@
 
         <div class="book-actions">
           <Button variant="primary" @click="goToUpload">
-            <Upload :size="18" />
-            上传照片
+            <div style="display: flex; justify-content: center; flex-direction: row;gap: 2px;">
+              <Upload style="margin: auto;" :size="18" />
+              <span>上传照片</span>
+            </div>
           </Button>
           <Button variant="secondary" @click="showEditModal = true">
-            <Edit :size="18" />
-            编辑信息
+            <div style="display: flex; justify-content: center; flex-direction: row;gap: 2px;">
+              <Edit style="margin: auto;" :size="18" />
+              <span>编辑信息</span>
+            </div>
           </Button>
           <Button variant="secondary" @click="handleDelete">
-            <Trash2 :size="18" />
-            删除
+            <div style="display: flex; justify-content: center; flex-direction: row;gap: 2px;">
+              <Trash2 style="margin: auto;" :size="18" />
+              <span>删除</span>
+            </div>
           </Button>
         </div>
       </div>
@@ -90,8 +96,10 @@
         description="上传第一张照片开始数字化"
       >
         <Button variant="primary" @click="goToUpload">
-          <Upload :size="18" />
-          上传照片
+          <div style="display: flex; justify-content: center; flex-direction: row;gap: 2px;">
+            <Upload style="margin: auto;" :size="18" />
+            上传照片
+          </div>
         </Button>
       </EmptyState>
 

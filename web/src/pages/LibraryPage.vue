@@ -31,8 +31,9 @@
           </button>
         </div>
         <Button variant="primary" @click="showCreateModal = true">
-          <Plus :size="18" />
-          新建书籍
+          <div style="display: flex; justify-content: center; flex-direction: row;gap: 2px;">
+              <Plus style="margin: auto;" :size="18" /><span>新建书籍</span>
+            </div>
         </Button>
       </div>
     </header>
@@ -62,8 +63,9 @@
       description="开始创建你的第一本数字书籍"
     >
       <Button variant="primary" @click="showCreateModal = true">
-        <Plus :size="18" />
-        创建书籍
+          <div style="display: flex; justify-content: center; flex-direction: row;">
+            <Plus style="margin: auto;" :size="18" /><span>创建书籍</span>
+          </div>
       </Button>
     </EmptyState>
 
