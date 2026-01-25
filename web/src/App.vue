@@ -14,10 +14,6 @@
           <Library :size="20" />
           <span>书架</span>
         </router-link>
-        <router-link to="/upload" class="nav-item" :class="{ active: currentRoute === '/upload' }">
-          <Upload :size="20" />
-          <span>上传</span>
-        </router-link>
         <router-link to="/settings" class="nav-item" :class="{ active: currentRoute === '/settings' }">
           <Settings :size="20" />
           <span>设置</span>
@@ -42,10 +38,6 @@
       <router-link to="/" class="bottom-nav-item" :class="{ active: currentRoute === '/' }">
         <Library :size="24" />
         <span>书架</span>
-      </router-link>
-      <router-link to="/upload" class="bottom-nav-item" :class="{ active: currentRoute === '/upload' }">
-        <Upload :size="24" />
-        <span>上传</span>
       </router-link>
       <router-link to="/settings" class="bottom-nav-item" :class="{ active: currentRoute === '/settings' }">
         <Settings :size="24" />
@@ -74,7 +66,6 @@ import { useRoute } from 'vue-router'
 import {
   BookOpen,
   Library,
-  Upload,
   Settings,
   User
 } from 'lucide-vue-next'

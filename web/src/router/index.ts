@@ -14,12 +14,6 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '书籍详情' },
   },
   {
-    path: '/upload',
-    name: 'Upload',
-    component: () => import('@/pages/UploadPage.vue'),
-    meta: { title: '上传照片' },
-  },
-  {
     path: '/upload/:bookId',
     name: 'UploadToBook',
     component: () => import('@/pages/UploadPage.vue'),
