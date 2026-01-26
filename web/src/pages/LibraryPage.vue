@@ -170,11 +170,14 @@ const newBook = ref<Partial<Book>>({
 })
 
 const books = computed(() => booksStore.books)
-const loading = computed(() => booksStore.loading)
 const total = computed(() => booksStore.total)
 const currentPage = computed(() => booksStore.query.page || 1)
 const pageSize = computed(() => booksStore.query.pageSize || 12)
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
+
+// Only show loading skeleton on initial load (when no data yet)
+const isInitialLoading = ref(false)
+const loading = computed(() => isInitialLoading.value && booksStore.loading)
 
 const filters = [
   { label: '全部', value: 'all' as const },
@@ -184,8 +187,13 @@ const filters = [
   { label: '已完成', value: 'completed' as const },
 ]
 
-onMounted(() => {
-  booksStore.fetchBooks()
+onMounted(async () => {
+  // Only show loading skeleton if no cached data
+  if (booksStore.books.length === 0) {
+    isInitialLoading.value = true
+  }
+  await booksStore.fetchBooks()
+  isInitialLoading.value = false
 })
 
 const handleSearch = (event: Event) => {

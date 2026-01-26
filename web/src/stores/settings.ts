@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { api } from '@/api'
 import type { Settings } from '@/types'
+
+const STORAGE_KEY = 'ibookfs_settings'
 
 interface SettingsState {
   settings: Settings
@@ -15,9 +16,31 @@ const defaultSettings: Settings = {
   defaultStartPage: 1,
 }
 
+// Load settings from localStorage
+function loadFromStorage(): Settings {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      return { ...defaultSettings, ...JSON.parse(stored) }
+    }
+  } catch (e) {
+    console.error('Failed to load settings from localStorage:', e)
+  }
+  return defaultSettings
+}
+
+// Save settings to localStorage
+function saveToStorage(settings: Settings): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+  } catch (e) {
+    console.error('Failed to save settings to localStorage:', e)
+  }
+}
+
 export const useSettingsStore = defineStore('settings', {
   state: (): SettingsState => ({
-    settings: defaultSettings,
+    settings: loadFromStorage(),
     loading: false,
     error: null,
   }),
@@ -27,47 +50,18 @@ export const useSettingsStore = defineStore('settings', {
   },
 
   actions: {
-    async fetchSettings() {
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await api.getSettings()
-
-        if (response.success) {
-          this.settings = response.data
-          this.applyTheme()
-        } else {
-          this.error = response.message || 'Failed to fetch settings'
-        }
-      } catch (err) {
-        this.error = err instanceof Error ? err.message : 'An error occurred'
-      } finally {
-        this.loading = false
-      }
+    // Initialize settings from localStorage
+    initSettings() {
+      this.settings = loadFromStorage()
+      this.applyTheme()
     },
 
-    async updateSettings(data: Partial<Settings>) {
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await api.updateSettings(data)
-
-        if (response.success) {
-          this.settings = response.data
-          this.applyTheme()
-          return true
-        } else {
-          this.error = response.message || 'Failed to update settings'
-          return false
-        }
-      } catch (err) {
-        this.error = err instanceof Error ? err.message : 'An error occurred'
-        return false
-      } finally {
-        this.loading = false
-      }
+    // Update settings and save to localStorage
+    updateSettings(data: Partial<Settings>) {
+      this.settings = { ...this.settings, ...data }
+      saveToStorage(this.settings)
+      this.applyTheme()
+      return true
     },
 
     applyTheme() {
@@ -82,23 +76,18 @@ export const useSettingsStore = defineStore('settings', {
     },
 
     setTheme(theme: Settings['theme']) {
-      this.settings.theme = theme
-      this.applyTheme()
       this.updateSettings({ theme })
     },
 
     setUploadQuality(quality: Settings['uploadQuality']) {
-      this.settings.uploadQuality = quality
       this.updateSettings({ uploadQuality: quality })
     },
 
     setAutoOptimize(enabled: boolean) {
-      this.settings.autoOptimize = enabled
       this.updateSettings({ autoOptimize: enabled })
     },
 
     setDefaultStartPage(page: number) {
-      this.settings.defaultStartPage = page
       this.updateSettings({ defaultStartPage: page })
     },
   },

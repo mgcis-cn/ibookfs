@@ -97,52 +97,32 @@ import type { Settings } from '@/types'
 const settingsStore = useSettingsStore()
 const toastStore = useToastStore()
 
-const localSettings = ref<Settings>({
-  theme: 'light',
-  uploadQuality: 'high',
-  autoOptimize: true,
-  defaultStartPage: 1,
-})
+// Use reactive reference to store settings for two-way binding
+const localSettings = ref<Settings>({ ...settingsStore.settings })
 
-onMounted(async () => {
-  await settingsStore.fetchSettings()
+onMounted(() => {
+  // Load settings from store (localStorage)
   localSettings.value = { ...settingsStore.settings }
 })
 
-const handleThemeChange = async () => {
-  const success = await settingsStore.updateSettings({
-    theme: localSettings.value.theme,
-  })
-  if (success) {
-    toastStore.success('主题设置已更新')
-  }
+const handleThemeChange = () => {
+  settingsStore.updateSettings({ theme: localSettings.value.theme })
+  toastStore.success('主题设置已更新')
 }
 
-const handleUploadQualityChange = async () => {
-  const success = await settingsStore.updateSettings({
-    uploadQuality: localSettings.value.uploadQuality,
-  })
-  if (success) {
-    toastStore.success('上传质量设置已更新')
-  }
+const handleUploadQualityChange = () => {
+  settingsStore.updateSettings({ uploadQuality: localSettings.value.uploadQuality })
+  toastStore.success('上传质量设置已更新')
 }
 
-const handleAutoOptimizeChange = async () => {
-  const success = await settingsStore.updateSettings({
-    autoOptimize: localSettings.value.autoOptimize,
-  })
-  if (success) {
-    toastStore.success('自动优化设置已更新')
-  }
+const handleAutoOptimizeChange = () => {
+  settingsStore.updateSettings({ autoOptimize: localSettings.value.autoOptimize })
+  toastStore.success('自动优化设置已更新')
 }
 
-const handleStartPageChange = async () => {
-  const success = await settingsStore.updateSettings({
-    defaultStartPage: localSettings.value.defaultStartPage,
-  })
-  if (success) {
-    toastStore.success('默认起始页码已更新')
-  }
+const handleStartPageChange = () => {
+  settingsStore.updateSettings({ defaultStartPage: localSettings.value.defaultStartPage })
+  toastStore.success('默认起始页码已更新')
 }
 </script>
 

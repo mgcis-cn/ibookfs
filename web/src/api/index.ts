@@ -1,14 +1,7 @@
 /**
  * API Client Module
  *
- * This module provides a centralized API client that currently uses mock data.
- * In the future, this can be easily replaced with real API calls.
- *
- * To integrate with a real backend:
- * 1. Replace the mock implementations with actual fetch/axios calls
- * 2. Update the base URL configuration
- * 3. Add authentication headers if needed
- * 4. Implement proper error handling for network failures
+ * This module provides a centralized API client connecting to the Go backend.
  */
 
 import type {
@@ -24,49 +17,68 @@ import type {
   Settings,
   User,
 } from '@/types'
-import { mockBooks, mockPhotos, mockSettings, delay, getPhotosByBookId } from './mockData'
+import { mockPhotos, mockSettings, delay, getPhotosByBookId } from './mockData'
 
 // API Configuration
-// @ts-ignore - Intentionally unused for future API implementation
-const _API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
 
 /**
- * Generic API handler that can switch between mock and real API
- * This is a template for future real API implementation
+ * Generic API handler for real backend calls
  */
-// @ts-ignore - Intentionally unused template function
 async function apiCall<T>(
-  // @ts-ignore - Intentionally unused for future API implementation
-  _endpoint: string,
-  // @ts-ignore - Intentionally unused for future API implementation
-  _method: string = 'GET',
-  // @ts-ignore - Intentionally unused for future API implementation
-  _data?: unknown
-): Promise<ApiResponse<T>> {
-  if (USE_MOCK) {
-    // Simulate network delay
-    await delay()
+  endpoint: string,
+  method: string = 'GET',
+  data?: unknown
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: data ? JSON.stringify(data) : undefined,
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Request failed' }))
+    throw new Error(error.error || error.message || 'Request failed')
   }
 
-  // TODO: Implement real API call here when USE_MOCK is false
-  // Example:
-  // if (!USE_MOCK) {
-  //   const response = await fetch(`${_API_BASE_URL}${_endpoint}`, {
-  //     method: _method,
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //       // Add auth headers if needed
-  //     },
-  //     body: _data ? JSON.stringify(_data) : undefined,
-  //   })
-  //   if (!response.ok) {
-  //     throw new Error(await response.text())
-  //   }
-  //   return response.json()
-  // }
+  return response.json()
+}
 
-  throw new Error('API endpoint not implemented in mock mode')
+/**
+ * Transform backend book to frontend format
+ */
+function transformBook(backendBook: {
+  id: number
+  title: string
+  author: string
+  isbn: string
+  publisher: string
+  year: number
+  pages: number
+  uploaded_pages: number
+  status: string
+  file_path: string
+  file_size: number
+  format: string
+  cover: string
+  created_at: string
+  updated_at: string
+}): Book {
+  return {
+    id: String(backendBook.id),
+    title: backendBook.title,
+    author: backendBook.author || '',
+    isbn: backendBook.isbn,
+    cover: backendBook.cover,
+    totalPages: backendBook.pages || 0,
+    uploadedPages: backendBook.uploaded_pages || 0,
+    status: (backendBook.status || 'draft') as Book['status'],
+    createdAt: backendBook.created_at,
+    updatedAt: backendBook.updated_at,
+  }
 }
 
 // ====================
@@ -75,169 +87,160 @@ async function apiCall<T>(
 
 /**
  * Get all books with optional filtering and pagination
- *
- * TODO: Replace with GET /api/books
  */
 export async function getBooks(query: BookQuery = {}): Promise<ApiResponse<PaginatedResponse<Book>>> {
-  await delay(200)
-
-  let filtered = [...mockBooks]
-
-  // Apply filter
-  if (query.filter && query.filter !== 'all') {
-    filtered = filtered.filter((book) => book.status === query.filter)
+  if (USE_MOCK) {
+    await delay(200)
+    return {
+      success: true,
+      data: { items: [], total: 0, page: 1, pageSize: 12 },
+    }
   }
 
-  // Apply search
-  if (query.search) {
-    const searchLower = query.search.toLowerCase()
-    filtered = filtered.filter(
-      (book) =>
-        book.title.toLowerCase().includes(searchLower) ||
-        book.author.toLowerCase().includes(searchLower)
+  try {
+    const params = new URLSearchParams()
+    if (query.page) params.set('page', String(query.page))
+    if (query.pageSize) params.set('page_size', String(query.pageSize))
+    if (query.filter && query.filter !== 'all') params.set('status', query.filter)
+    if (query.search) params.set('search', query.search)
+
+    const response = await apiCall<{ data: unknown[]; total: number; message: string }>(
+      `/books?${params.toString()}`
     )
-  }
 
-  // Apply sorting
-  if (query.sort) {
-    filtered.sort((a, b) => {
-      switch (query.sort) {
-        case 'title':
-          return a.title.localeCompare(b.title)
-        case 'author':
-          return a.author.localeCompare(b.author)
-        case 'createdAt':
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        case 'status':
-          return a.status.localeCompare(b.status)
-        default:
-          return 0
-      }
-    })
-  }
+    const books = (response.data || []).map((item) => transformBook(item as Parameters<typeof transformBook>[0]))
 
-  // Apply pagination
-  const page = query.page || 1
-  const pageSize = query.pageSize || 12
-  const start = (page - 1) * pageSize
-  const paginated = filtered.slice(start, start + pageSize)
-
-  return {
-    success: true,
-    data: {
-      items: paginated,
-      total: filtered.length,
-      page,
-      pageSize,
-    },
+    return {
+      success: true,
+      data: {
+        items: books,
+        total: response.total || books.length,
+        page: query.page || 1,
+        pageSize: query.pageSize || 12,
+      },
+    }
+  } catch (err) {
+    return {
+      success: false,
+      data: { items: [], total: 0, page: 1, pageSize: 12 },
+      message: err instanceof Error ? err.message : 'Failed to fetch books',
+    }
   }
 }
 
 /**
  * Get a single book by ID
- *
- * TODO: Replace with GET /api/books/:id
  */
 export async function getBook(id: string): Promise<ApiResponse<Book>> {
-  await delay(150)
+  if (USE_MOCK) {
+    await delay(150)
+    return { success: false, data: null as unknown as Book, message: 'Book not found' }
+  }
 
-  const book = mockBooks.find((b) => b.id === id)
-
-  if (!book) {
+  try {
+    const response = await apiCall<{ data: unknown; message: string }>(`/books/${id}`)
+    return {
+      success: true,
+      data: transformBook(response.data as Parameters<typeof transformBook>[0]),
+    }
+  } catch (err) {
     return {
       success: false,
       data: null as unknown as Book,
-      message: 'Book not found',
+      message: err instanceof Error ? err.message : 'Book not found',
     }
-  }
-
-  return {
-    success: true,
-    data: book,
   }
 }
 
 /**
  * Create a new book
- *
- * TODO: Replace with POST /api/books
  */
 export async function createBook(
   data: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<ApiResponse<Book>> {
-  await delay(300)
-
-  const newBook: Book = {
-    ...data,
-    id: Date.now().toString(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  if (USE_MOCK) {
+    await delay(300)
+    return { success: false, data: null as unknown as Book, message: 'Mock mode' }
   }
 
-  mockBooks.push(newBook)
+  try {
+    const payload = {
+      title: data.title,
+      author: data.author,
+      isbn: data.isbn || '',
+      pages: data.totalPages || 0,
+      uploaded_pages: data.uploadedPages || 0,
+      status: data.status || 'draft',
+      cover: data.cover || '',
+    }
 
-  return {
-    success: true,
-    data: newBook,
+    const response = await apiCall<{ data: unknown; message: string }>('/books', 'POST', payload)
+    return {
+      success: true,
+      data: transformBook(response.data as Parameters<typeof transformBook>[0]),
+    }
+  } catch (err) {
+    return {
+      success: false,
+      data: null as unknown as Book,
+      message: err instanceof Error ? err.message : 'Failed to create book',
+    }
   }
 }
 
 /**
  * Update a book
- *
- * TODO: Replace with PUT /api/books/:id
  */
 export async function updateBook(
   id: string,
   data: Partial<Book>
 ): Promise<ApiResponse<Book>> {
-  await delay(250)
+  if (USE_MOCK) {
+    await delay(250)
+    return { success: false, data: null as unknown as Book, message: 'Mock mode' }
+  }
 
-  const index = mockBooks.findIndex((b) => b.id === id)
+  try {
+    const payload = {
+      title: data.title,
+      author: data.author,
+      isbn: data.isbn,
+      pages: data.totalPages,
+      cover: data.cover,
+    }
 
-  if (index === -1) {
+    const response = await apiCall<{ data: unknown; message: string }>(`/books/${id}`, 'PUT', payload)
+    return {
+      success: true,
+      data: transformBook(response.data as Parameters<typeof transformBook>[0]),
+    }
+  } catch (err) {
     return {
       success: false,
       data: null as unknown as Book,
-      message: 'Book not found',
+      message: err instanceof Error ? err.message : 'Failed to update book',
     }
-  }
-
-  mockBooks[index] = {
-    ...mockBooks[index],
-    ...data,
-    updatedAt: new Date().toISOString(),
-  }
-
-  return {
-    success: true,
-    data: mockBooks[index],
   }
 }
 
 /**
  * Delete a book
- *
- * TODO: Replace with DELETE /api/books/:id
  */
 export async function deleteBook(id: string): Promise<ApiResponse<void>> {
-  await delay(200)
-
-  const index = mockBooks.findIndex((b) => b.id === id)
-
-  if (index === -1) {
-    return {
-      success: false,
-      data: null as unknown as void,
-      message: 'Book not found',
-    }
+  if (USE_MOCK) {
+    await delay(200)
+    return { success: false, data: undefined, message: 'Mock mode' }
   }
 
-  mockBooks.splice(index, 1)
-
-  return {
-    success: true,
-    data: undefined,
+  try {
+    await apiCall<{ message: string }>(`/books/${id}`, 'DELETE')
+    return { success: true, data: undefined }
+  } catch (err) {
+    return {
+      success: false,
+      data: undefined,
+      message: err instanceof Error ? err.message : 'Failed to delete book',
+    }
   }
 }
 

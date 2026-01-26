@@ -71,9 +71,11 @@ import {
 } from 'lucide-vue-next'
 import Toast from '@/components/ui/Toast.vue'
 import { useToastStore } from '@/stores/toast'
+import { useSettingsStore } from '@/stores/settings'
 
 const route = useRoute()
 const toastStore = useToastStore()
+const settingsStore = useSettingsStore()
 
 const currentRoute = computed(() => route.path)
 const toasts = computed(() => toastStore.toasts)
@@ -104,6 +106,8 @@ const removeToast = (id: number) => {
 onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
+  // Apply saved settings (theme, etc.) on app start
+  settingsStore.initSettings()
 })
 
 onUnmounted(() => {
