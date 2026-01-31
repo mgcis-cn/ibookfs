@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mgcis/ibookfs/internal/config"
-	"github.com/mgcis/ibookfs/internal/database"
-	"github.com/mgcis/ibookfs/internal/router"
+	"github.com/mgcis-cn/ibookfs/internal/config"
+	"github.com/mgcis-cn/ibookfs/internal/database"
+	"github.com/mgcis-cn/ibookfs/internal/router"
 )
 
 func main() {

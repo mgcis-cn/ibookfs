@@ -4,8 +4,8 @@ package repository
 import (
 	"context"
 
-	"github.com/mgcis/ibookfs/internal/database"
-	"github.com/mgcis/ibookfs/internal/model"
+	"github.com/mgcis-cn/ibookfs/internal/database"
+	"github.com/mgcis-cn/ibookfs/internal/model"
 )
 
 // BookRepository handles book data operations.
@@ -16,10 +16,10 @@ func (r *BookRepository) Create(ctx context.Context, book *model.Book) error {
 	return database.Default().WithContext(ctx).Create(book).Error
 }
 
-// GetByID retrieves a book by ID.
-func (r *BookRepository) GetByID(ctx context.Context, id uint) (*model.Book, error) {
+// GetByID retrieves a book by ID and user ID.
+func (r *BookRepository) GetByID(ctx context.Context, id uint, userID uint) (*model.Book, error) {
 	var book model.Book
-	err := database.Default().WithContext(ctx).First(&book, id).Error
+	err := database.Default().WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&book).Error
 	if err != nil {
 		return nil, err
 	}
@@ -31,9 +31,9 @@ func (r *BookRepository) Update(ctx context.Context, book *model.Book) error {
 	return database.Default().WithContext(ctx).Save(book).Error
 }
 
-// Delete deletes a book by ID.
-func (r *BookRepository) Delete(ctx context.Context, id uint) error {
-	return database.Default().WithContext(ctx).Delete(&model.Book{}, id).Error
+// Delete deletes a book by ID and user ID.
+func (r *BookRepository) Delete(ctx context.Context, id uint, userID uint) error {
+	return database.Default().WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&model.Book{}).Error
 }
 
 // ListQuery defines query parameters for listing books.
@@ -42,6 +42,7 @@ type ListQuery struct {
 	PageSize int
 	Status   string
 	Search   string
+	UserID   uint
 }
 
 // List retrieves all books with pagination and filtering.
@@ -50,6 +51,9 @@ func (r *BookRepository) List(ctx context.Context, query ListQuery) ([]model.Boo
 	var total int64
 
 	db := database.Default().WithContext(ctx).Model(&model.Book{})
+
+	// Filter by user ID
+	db = db.Where("user_id = ?", query.UserID)
 
 	// Apply status filter
 	if query.Status != "" {

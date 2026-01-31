@@ -65,6 +65,20 @@ export interface ApiError {
   code?: string
 }
 
+// Auth Configuration Type
+export interface AuthConfig {
+  oauthProviders: string[]
+  emailEnabled: boolean
+  oauthEnabled: boolean
+  oauth: {
+    github: { configured: boolean }
+    gitee: { configured: boolean }
+    icloud: { configured: boolean }
+    google: { configured: boolean }
+    wechat: { configured: boolean }
+  }
+}
+
 export interface PaginatedResponse<T> {
   items: T[]
   total: number
@@ -101,23 +115,65 @@ export interface Toast {
   duration?: number
 }
 
-// Auth Types
+// ================================================================
+// AUTH TYPES - Enhanced with OAuth Support
+// ================================================================
+
+export type OAuthProvider = 'github' | 'gitee' | 'icloud' | 'google' | 'wechat'
+
 export interface User {
   id: string
   email: string
-  firstName: string
-  lastName: string
+  emailVerified: boolean
+  first_name?: string
+  last_name?: string
+  display_name?: string
+  avatarUrl?: string
+  bio?: string
+  status: UserStatus
+  role: UserRole
+  preferences?: UserPreferences
+  language: string
+  timezone: string
+  lastLoginAt?: string
   createdAt: string
+  updatedAt: string
+  linkedAccounts?: LinkedAccount[]
+}
+
+export type UserStatus = 'active' | 'suspended' | 'deleted'
+
+export type UserRole = 'user' | 'admin' | 'super_admin'
+
+export interface UserPreferences {
+  theme?: 'light' | 'dark' | 'system'
+  notifications?: {
+    email?: boolean
+    push?: boolean
+  }
+}
+
+export interface LinkedAccount {
+  provider: 'email' | OAuthProvider
+  providerEmail?: string
+  providerUserId?: string
+  providerUsername?: string
+  isPrimary: boolean
+  linkedAt?: string
+  lastUsedAt?: string
 }
 
 export interface AuthResponse {
   user: User
   token: string
+  refreshToken?: string
+  expiresIn?: number
+  isNewUser?: boolean
 }
 
 export interface SendCodeRequest {
   email: string
-  type?: 'login' | 'register'
+  type: 'login' | 'register' | 'bind_email' | 'reset_password'
 }
 
 export interface LoginRequest {
@@ -126,8 +182,80 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
-  firstName: string
-  lastName: string
+  first_name: string
+  last_name: string
   email: string
   code: string
 }
+
+export interface OAuthAuthorizeRequest {
+  provider: OAuthProvider
+  redirectUri: string
+  state?: string
+}
+
+export interface OAuthAuthorizeResponse {
+  authorizeUrl: string
+  state: string
+}
+
+export interface OAuthCallbackRequest {
+  provider: OAuthProvider
+  code: string
+  state: string
+}
+
+export interface LinkOAuthRequest {
+  provider: OAuthProvider
+  code: string
+  state: string
+}
+
+export interface UnlinkOAuthRequest {
+  provider: OAuthProvider
+  providerUserId?: string
+}
+
+export interface BindEmailRequest {
+  email: string
+  code: string
+}
+
+export interface SetPrimaryAccountRequest {
+  provider: OAuthProvider | 'email'
+  providerUserId?: string
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string
+}
+
+export interface UpdateProfileRequest {
+  first_name?: string
+  last_name?: string
+  displayName?: string
+  bio?: string
+  language?: string
+  timezone?: string
+}
+
+// ================================================================
+// STORE TYPES
+// ================================================================
+
+export interface AuthState {
+  user: User | null
+  token: string | null
+  refreshToken: string | null
+  isAuthenticated: boolean
+  isLoading: boolean
+  error: string | null
+}
+
+export type AuthAction =
+  | { type: 'AUTH_START' }
+  | { type: 'AUTH_SUCCESS'; payload: { user: User; token: string; refreshToken?: string } }
+  | { type: 'AUTH_FAILURE'; payload: string }
+  | { type: 'AUTH_LOGOUT' }
+  | { type: 'AUTH_UPDATE_USER'; payload: Partial<User> }
+  | { type: 'AUTH_CLEAR_ERROR' }

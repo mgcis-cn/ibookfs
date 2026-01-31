@@ -31,11 +31,21 @@ async function apiCall<T>(
   method: string = 'GET',
   data?: unknown
 ): Promise<T> {
+  // Get token from localStorage
+  const token = localStorage.getItem('authToken')
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  }
+
+  // Add Authorization header if token exists
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: data ? JSON.stringify(data) : undefined,
   })
 
@@ -456,9 +466,15 @@ export async function login(
     user: {
       id: 'user_1',
       email: data.email,
-      firstName: '张',
-      lastName: '三',
+      emailVerified: true,
+      first_name: '',
+      last_name: '小李',
+      status: 'active',
+      role: 'user',
+      language: 'zh-CN',
+      timezone: 'Asia/Shanghai',
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     token: 'mock_token_' + Date.now(),
   }
@@ -507,9 +523,15 @@ export async function register(
   const newUser = {
     id: 'user_' + Date.now(),
     email: data.email,
-    firstName: data.firstName,
-    lastName: data.lastName,
+    emailVerified: true,
+    first_name: data.first_name,
+    last_name: data.last_name,
+    status: 'active' as const,
+    role: 'user' as const,
+    language: 'zh-CN',
+    timezone: 'Asia/Shanghai',
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }
 
   existingUsers.push(newUser)

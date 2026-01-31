@@ -6,11 +6,11 @@ import (
 	"log"
 	"sync/atomic"
 
-	"github.com/mgcis/ibookfs/internal/config"
-	"github.com/mgcis/ibookfs/internal/database/sources"
-	"github.com/mgcis/ibookfs/internal/database/sources/mysql"
-	"github.com/mgcis/ibookfs/internal/database/sources/sqlite"
-	"github.com/mgcis/ibookfs/internal/model"
+	"github.com/mgcis-cn/ibookfs/internal/config"
+	"github.com/mgcis-cn/ibookfs/internal/database/sources"
+	"github.com/mgcis-cn/ibookfs/internal/database/sources/mysql"
+	"github.com/mgcis-cn/ibookfs/internal/database/sources/sqlite"
+	"github.com/mgcis-cn/ibookfs/internal/model"
 	"gorm.io/gorm"
 )
 
@@ -52,8 +52,20 @@ func OpenSource(source sources.Source) error {
 
 // AutoMigrate runs auto migration for all models.
 func AutoMigrate(db *gorm.DB) error {
-	if err := db.AutoMigrate(&model.Book{}); err != nil {
-		return err
+	models := []interface{}{
+		&model.Book{},
+		&model.User{},
+		&model.OAuthIdentity{},
+		&model.EmailVerificationCode{},
+		&model.Session{},
+		&model.LoginHistory{},
+		&model.AccountSecurityLog{},
+	}
+
+	for _, m := range models {
+		if err := db.AutoMigrate(m); err != nil {
+			return err
+		}
 	}
 	log.Println("Database migration completed")
 	return nil

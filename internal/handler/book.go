@@ -5,15 +5,23 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mgcis/ibookfs/internal/model"
-	"github.com/mgcis/ibookfs/internal/repository"
-	"github.com/mgcis/ibookfs/internal/service"
+	"github.com/mgcis-cn/ibookfs/internal/middleware"
+	"github.com/mgcis-cn/ibookfs/internal/model"
+	"github.com/mgcis-cn/ibookfs/internal/repository"
+	"github.com/mgcis-cn/ibookfs/internal/service"
 )
 
 var bookService service.BookService
 
-// ListBooks returns all books.
+// ListBooks returns all books for the current user.
 func ListBooks(c *gin.Context) {
+	// Get user ID from context
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
 	status := c.Query("status")
@@ -24,6 +32,7 @@ func ListBooks(c *gin.Context) {
 		PageSize: pageSize,
 		Status:   status,
 		Search:   search,
+		UserID:   userID,
 	}
 
 	books, total, err := bookService.List(c.Request.Context(), query)
@@ -41,13 +50,19 @@ func ListBooks(c *gin.Context) {
 
 // GetBook returns a single book by ID.
 func GetBook(c *gin.Context) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	book, err := bookService.GetByID(c.Request.Context(), uint(id))
+	book, err := bookService.GetByID(c.Request.Context(), uint(id), userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "book not found"})
 		return
@@ -61,11 +76,19 @@ func GetBook(c *gin.Context) {
 
 // CreateBook creates a new book.
 func CreateBook(c *gin.Context) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	var book model.Book
 	if err := c.ShouldBindJSON(&book); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	book.UserID = userID
 
 	if err := bookService.Create(c.Request.Context(), &book); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -80,6 +103,12 @@ func CreateBook(c *gin.Context) {
 
 // UpdateBook updates an existing book.
 func UpdateBook(c *gin.Context) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -93,6 +122,8 @@ func UpdateBook(c *gin.Context) {
 	}
 
 	book.ID = uint(id)
+	book.UserID = userID
+
 	if err := bookService.Update(c.Request.Context(), &book); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -106,13 +137,19 @@ func UpdateBook(c *gin.Context) {
 
 // DeleteBook deletes a book by ID.
 func DeleteBook(c *gin.Context) {
+	userID, exists := middleware.GetUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	if err := bookService.Delete(c.Request.Context(), uint(id)); err != nil {
+	if err := bookService.Delete(c.Request.Context(), uint(id), userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

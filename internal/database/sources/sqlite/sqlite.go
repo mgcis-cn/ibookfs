@@ -2,7 +2,7 @@
 package sqlite
 
 import (
-	"github.com/mgcis/ibookfs/internal/database/sources"
+	"github.com/mgcis-cn/ibookfs/internal/database/sources"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

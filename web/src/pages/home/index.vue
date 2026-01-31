@@ -4,8 +4,7 @@
     <nav class="landing-nav">
       <div class="nav-container">
         <router-link to="/" class="nav-logo">
-          <BookOpen :size="28" />
-          <span>iBookFS</span>
+          <Logo />
         </router-link>
 
         <div class="nav-links">
@@ -15,8 +14,12 @@
         </div>
 
         <div class="nav-actions">
-          <router-link to="/login" class="button-text">登录</router-link>
-          <router-link to="/register" class="button-primary">免费注册</router-link>
+          <router-link v-if="!authStore.isAuthenticated" to="/login" class="button-text">登录</router-link>
+          <router-link v-else to="/settings" class="button-text">
+            <User :size="18" />
+          </router-link>
+          <router-link v-if="!authStore.isAuthenticated" to="/register" class="button-primary">免费注册</router-link>
+          <router-link v-else to="/library" class="button-primary">进入书架</router-link>
         </div>
       </div>
     </nav>
@@ -34,9 +37,13 @@
             通过照片扫描、智能 OCR 识别和结构化整理，让您的纸质藏书成为可搜索、可分享的数字图书馆。
           </p>
           <div class="hero-actions">
-            <router-link to="/register" class="button-primary button-lg">
+            <router-link v-if="!authStore.isAuthenticated" to="/register" class="button-primary button-lg">
               <Plus :size="20" />
               开始免费使用
+            </router-link>
+            <router-link v-else to="/library" class="button-primary button-lg">
+              <Library :size="20" />
+              进入书架
             </router-link>
             <a href="#how-it-works" class="button-secondary button-lg">
               <PlayCircle :size="20" />
@@ -226,8 +233,12 @@
             立即注册，获得 14 天免费试用，体验完整的书籍数字化功能
           </p>
           <div class="cta-actions">
-            <router-link to="/register" class="button-primary button-lg">
+            <router-link v-if="!authStore.isAuthenticated" to="/register" class="button-primary button-lg">
               免费开始使用
+              <ArrowRight :size="20" />
+            </router-link>
+            <router-link v-else to="/library" class="button-primary button-lg">
+              进入我的书架
               <ArrowRight :size="20" />
             </router-link>
           </div>
@@ -240,10 +251,9 @@
     <footer class="landing-footer">
       <div class="footer-container">
         <div class="footer-brand">
-          <div class="footer-logo">
-            <BookOpen :size="24" />
-            <span>iBookFS</span>
-          </div>
+          <router-link to="/" class="footer-logo">
+            <Logo />
+          </router-link>
           <p class="footer-description">
             让纸质书籍焕发新生，将知识转化为数字资产
           </p>
@@ -281,8 +291,8 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import {
-  BookOpen,
   Plus,
   PlayCircle,
   Camera,
@@ -296,7 +306,19 @@ import {
   ChevronRight,
   Download,
   ArrowRight,
+  User,
 } from 'lucide-vue-next'
+import Logo from '@/components/ui/Logo.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
+
+// Initialize auth store on page load to check if user is logged in
+onMounted(async () => {
+  if (!authStore.isAuthenticated) {
+    await authStore.initialize()
+  }
+})
 </script>
 
 <style scoped>
@@ -328,12 +350,13 @@ import {
 .nav-logo {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
   text-decoration: none;
+  opacity: 1;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.nav-logo:hover {
+  opacity: 0.85;
 }
 
 .nav-links {
@@ -344,7 +367,7 @@ import {
 .nav-link {
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-ink-light);
+  color: #2B2B2B;
   text-decoration: none;
   transition: color var(--duration-fast) var(--ease-out);
 }
@@ -693,14 +716,16 @@ import {
 }
 
 .footer-logo {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
+  text-decoration: none;
   margin-bottom: var(--space-4);
+  opacity: 0.9;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.footer-logo:hover {
+  opacity: 1;
 }
 
 .footer-description {
@@ -796,7 +821,7 @@ import {
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-ink-light);
+  color: #2B2B2B;
   text-decoration: none;
   transition: color var(--duration-fast) var(--ease-out);
 }

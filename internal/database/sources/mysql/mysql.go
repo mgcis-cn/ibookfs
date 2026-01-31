@@ -4,7 +4,7 @@ package mysql
 import (
 	"fmt"
 
-	"github.com/mgcis/ibookfs/internal/database/sources"
+	"github.com/mgcis-cn/ibookfs/internal/database/sources"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

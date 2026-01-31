@@ -6,6 +6,7 @@ import "time"
 // Book represents a book entity.
 type Book struct {
 	ID            uint      `json:"id" gorm:"primaryKey"`
+	UserID        uint      `json:"user_id" gorm:"not null;index"`
 	Title         string    `json:"title" gorm:"size:255;not null"`
 	Author        string    `json:"author" gorm:"size:255"`
 	ISBN          string    `json:"isbn" gorm:"size:20;uniqueIndex"`
