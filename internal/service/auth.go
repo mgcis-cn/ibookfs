@@ -214,16 +214,14 @@ func (s *AuthService) Register(req RegisterRequest, ipAddress, userAgent string)
 	// Create user
 	displayName := req.FirstName + " " + req.LastName
 	user := &model.User{
-		Email:           req.Email,
-		EmailVerified:   true,
-		EmailVerifiedAt: util.Ptr(time.Now()),
-		FirstName:       req.FirstName,
-		LastName:        req.LastName,
-		DisplayName:     &displayName,
-		Status:          model.UserStatusActive,
-		Role:            model.UserRoleUser,
-		Language:        "zh-CN",
-		Timezone:        "Asia/Shanghai",
+		Email:       req.Email,
+		FirstName:   req.FirstName,
+		LastName:    req.LastName,
+		DisplayName: &displayName,
+		Status:      model.UserStatusActive,
+		Role:        model.UserRoleUser,
+		Language:    "zh-CN",
+		Timezone:    "Asia/Shanghai",
 	}
 
 	if err := db.Create(user).Error; err != nil {
@@ -341,13 +339,10 @@ func (s *AuthService) BindEmail(userID uint, email, code string) error {
 	db.Save(&verificationCode)
 
 	// Update user
-	now := time.Now()
 	return db.Model(&model.User{}).
 		Where("id = ?", userID).
 		Updates(map[string]interface{}{
-			"email":             email,
-			"email_verified":    true,
-			"email_verified_at": now,
+			"email": email,
 		}).Error
 }
 

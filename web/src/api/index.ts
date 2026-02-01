@@ -70,9 +70,6 @@ function transformBook(backendBook: {
   pages: number
   uploaded_pages: number
   status: string
-  file_path: string
-  file_size: number
-  format: string
   cover: string
   created_at: string
   updated_at: string

@@ -370,21 +370,15 @@ func (s *OAuthService) createUserFromOAuth(userInfo *model.OAuthUserInfo, ipAddr
 	// Generate username/firstName/lastName
 	// For OAuth users, we'll use the username as both first and last name initially
 	user := &model.User{
-		Email:         userInfo.Email,
-		FirstName:     userInfo.Username,
-		LastName:      userInfo.Username,
-		DisplayName:   &displayName,
-		AvatarURL:     &userInfo.AvatarURL,
-		EmailVerified: true,
-		Status:        model.UserStatusActive,
-		Role:          model.UserRoleUser,
-		Language:      "zh-CN",
-		Timezone:      "Asia/Shanghai",
-	}
-
-	if userInfo.Email != "" {
-		now := time.Now()
-		user.EmailVerifiedAt = &now
+		Email:       userInfo.Email,
+		FirstName:   userInfo.Username,
+		LastName:    userInfo.Username,
+		DisplayName: &displayName,
+		AvatarURL:   &userInfo.AvatarURL,
+		Status:      model.UserStatusActive,
+		Role:        model.UserRoleUser,
+		Language:    "zh-CN",
+		Timezone:    "Asia/Shanghai",
 	}
 
 	if err := database.Default().Create(user).Error; err != nil {

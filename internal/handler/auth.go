@@ -561,7 +561,6 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		FirstName   *string `json:"first_name"`
 		LastName    *string `json:"last_name"`
 		DisplayName *string `json:"display_name"`
-		Bio         *string `json:"bio"`
 		Language    *string `json:"language"`
 		Timezone    *string `json:"timezone"`
 	}
@@ -583,9 +582,6 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	}
 	if req.DisplayName != nil {
 		updates["display_name"] = *req.DisplayName
-	}
-	if req.Bio != nil {
-		updates["bio"] = *req.Bio
 	}
 	if req.Language != nil {
 		updates["language"] = *req.Language

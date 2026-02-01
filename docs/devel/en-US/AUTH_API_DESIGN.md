@@ -342,7 +342,6 @@ Add email as a login method for OAuth-only users.
     "user": {
       "id": "123",
       "email": "user@example.com",
-      "email_verified": true,
       "first_name": "张",
       "last_name": "三"
     }
@@ -483,12 +482,10 @@ Get authenticated user's profile.
   "data": {
     "id": "123",
     "email": "user@example.com",
-    "email_verified": true,
     "first_name": "张",
     "last_name": "三",
     "display_name": "张三",
     "avatar_url": "https://...",
-    "bio": null,
     "status": "active",
     "role": "user",
     "preferences": {
@@ -529,7 +526,6 @@ Update user's profile information.
   "first_name": "李",
   "last_name": "四",
   "display_name": "李四",
-  "bio": "热爱阅读",
   "language": "en-US",
   "timezone": "America/New_York"
 }
@@ -626,4 +622,3 @@ For integration with webhook system:
 | `user.logged_in` | User logged in |
 | `user.oauth_linked` | OAuth account linked |
 | `user.oauth_unlinked` | OAuth account unlinked |
-| `user.email_verified` | User email verified |

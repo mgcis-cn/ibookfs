@@ -59,7 +59,6 @@ ibookfs/
 | `email_verification_codes` | 邮箱验证码 |
 | `sessions` | 会话管理 |
 | `login_history` | 登录历史审计 |
-| `account_security_log` | 安全事件日志 |
 
 ### 关键关系
 

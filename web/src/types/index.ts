@@ -129,7 +129,6 @@ export interface User {
   last_name?: string
   display_name?: string
   avatarUrl?: string
-  bio?: string
   status: UserStatus
   role: UserRole
   preferences?: UserPreferences
@@ -234,7 +233,6 @@ export interface UpdateProfileRequest {
   first_name?: string
   last_name?: string
   displayName?: string
-  bio?: string
   language?: string
   timezone?: string
 }

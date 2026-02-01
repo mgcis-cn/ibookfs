@@ -5,35 +5,31 @@ import "time"
 
 // User represents a user entity.
 type User struct {
-	ID              uint       `json:"id" gorm:"primaryKey"`
-	Email           string     `json:"email" gorm:"size:255;not null;uniqueIndex:idx_users_email"`
-	EmailVerified   bool       `json:"email_verified" gorm:"default:false"`
-	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
-	PasswordHash    string     `json:"-" gorm:"size:255"`
+	ID    uint   `json:"id" gorm:"primaryKey;comment:主键"`
+	Email string `json:"email" gorm:"size:255;not null;uniqueIndex:idx_users_email;comment:邮箱"`
 
 	// Profile
-	FirstName   string  `json:"first_name" gorm:"size:100;not null"`
-	LastName    string  `json:"last_name" gorm:"size:100;not null"`
-	DisplayName *string `json:"display_name,omitempty" gorm:"size:255"`
-	AvatarURL   *string `json:"avatar_url,omitempty" gorm:"size:500"`
-	Bio         *string `json:"bio,omitempty" gorm:"type:text"`
+	FirstName   string  `json:"first_name" gorm:"size:100;not null;comment:名"`
+	LastName    string  `json:"last_name" gorm:"size:100;not null;comment:姓"`
+	DisplayName *string `json:"display_name,omitempty" gorm:"size:255;comment:显示名称"`
+	AvatarURL   *string `json:"avatar_url,omitempty" gorm:"size:500;comment:头像URL"`
 
 	// Status
-	Status UserStatus `json:"status" gorm:"size:20;default:'active'"`
-	Role   UserRole   `json:"role" gorm:"size:20;default:'user'"`
+	Status UserStatus `json:"status" gorm:"size:20;default:'active';comment:状态"`
+	Role   UserRole   `json:"role" gorm:"size:20;default:'user';comment:角色"`
 
 	// Settings
-	Preferences *string `json:"preferences,omitempty" gorm:"type:json"`
-	Language    string  `json:"language" gorm:"size:10;default:'zh-CN'"`
-	Timezone    string  `json:"timezone" gorm:"size:50;default:'Asia/Shanghai'"`
+	Preferences *string `json:"preferences,omitempty" gorm:"type:longtext;comment:用户偏好设置（JSON）"`
+	Language    string  `json:"language" gorm:"size:10;default:'zh-CN';comment:语言设置"`
+	Timezone    string  `json:"timezone" gorm:"size:50;default:'Asia/Shanghai';comment:时区"`
 
 	// Tracking
-	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
-	LastLoginIP *string    `json:"last_login_ip,omitempty" gorm:"size:45"`
+	LastLoginAt *time.Time `json:"last_login_at,omitempty" gorm:"comment:最后登录时间"`
+	LastLoginIP *string    `json:"last_login_ip,omitempty" gorm:"size:45;comment:最后登录IP"`
 
 	// Timestamps
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time `json:"created_at" gorm:"comment:创建时间"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"comment:更新时间"`
 
 	// Associations
 	OAuthIdentities []OAuthIdentity `json:"linked_accounts,omitempty" gorm:"foreignKey:UserID"`
@@ -65,14 +61,14 @@ func (User) TableName() string {
 
 // EmailVerificationCode represents a verification code for email operations.
 type EmailVerificationCode struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
-	Email     string    `json:"email" gorm:"size:255;not null"`
-	Code      string    `json:"code" gorm:"size:10;not null"`
-	Type      CodeType  `json:"type" gorm:"size:20;not null"`
-	ExpiresAt time.Time `json:"expires_at" gorm:"not null"`
-	Used      bool      `json:"used" gorm:"default:false"`
-	Attempts  int       `json:"attempts" gorm:"default:0"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uint      `json:"id" gorm:"primaryKey;comment:主键"`
+	Email     string    `json:"email" gorm:"size:255;not null;comment:邮箱地址"`
+	Code      string    `json:"code" gorm:"size:10;not null;comment:验证码（6位数字）"`
+	Type      CodeType  `json:"type" gorm:"size:20;not null;comment:类型"`
+	ExpiresAt time.Time `json:"expires_at" gorm:"not null;comment:过期时间"`
+	Used      bool      `json:"used" gorm:"default:false;comment:是否已使用"`
+	Attempts  int       `json:"attempts" gorm:"default:0;comment:验证尝试次数"`
+	CreatedAt time.Time `json:"created_at" gorm:"comment:创建时间"`
 }
 
 // CodeType represents the type of verification code.
@@ -92,25 +88,25 @@ func (EmailVerificationCode) TableName() string {
 
 // Session represents a user session.
 type Session struct {
-	ID               uint    `json:"id" gorm:"primaryKey"`
-	UserID           uint    `json:"user_id" gorm:"not null;index:idx_sessions_user_id"`
-	TokenHash        string  `json:"-" gorm:"size:64;not null;uniqueIndex:idx_sessions_token_hash"`
-	RefreshTokenHash *string `json:"-" gorm:"size:64"`
+	ID               uint    `json:"id" gorm:"primaryKey;comment:主键"`
+	UserID           uint    `json:"user_id" gorm:"not null;index:idx_sessions_user_id;comment:用户ID"`
+	TokenHash        string  `json:"-" gorm:"size:64;not null;uniqueIndex:idx_sessions_token_hash;comment:访问令牌哈希"`
+	RefreshTokenHash *string `json:"-" gorm:"size:64;comment:刷新令牌哈希"`
 
 	// Device info
-	UserAgent  *string `json:"user_agent,omitempty" gorm:"size:500"`
-	IPAddress  *string `json:"ip_address,omitempty" gorm:"size:45"`
-	DeviceType *string `json:"device_type,omitempty" gorm:"size:50"`
-	DeviceName *string `json:"device_name,omitempty" gorm:"size:100"`
+	UserAgent  *string `json:"user_agent,omitempty" gorm:"size:500;comment:用户代理（浏览器信息）"`
+	IPAddress  *string `json:"ip_address,omitempty" gorm:"size:45;comment:IP地址"`
+	DeviceType *string `json:"device_type,omitempty" gorm:"size:50;comment:设备类型"`
+	DeviceName *string `json:"device_name,omitempty" gorm:"size:100;comment:设备名称"`
 
 	// Status
-	ExpiresAt      time.Time  `json:"expires_at" gorm:"not null;index:idx_sessions_expires"`
-	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
-	Revoked        bool       `json:"revoked" gorm:"default:false;index:idx_sessions_revoked"`
-	RevokedAt      *time.Time `json:"revoked_at,omitempty"`
-	RevokedReason  *string    `json:"revoked_reason,omitempty" gorm:"size:255"`
+	ExpiresAt      time.Time  `json:"expires_at" gorm:"not null;index:idx_sessions_expires;comment:过期时间"`
+	LastActivityAt *time.Time `json:"last_activity_at,omitempty" gorm:"comment:最后活跃时间"`
+	Revoked        bool       `json:"revoked" gorm:"default:false;index:idx_sessions_revoked;comment:是否已撤销"`
+	RevokedAt      *time.Time `json:"revoked_at,omitempty" gorm:"comment:撤销时间"`
+	RevokedReason  *string    `json:"revoked_reason,omitempty" gorm:"size:255;comment:撤销原因"`
 
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `json:"created_at" gorm:"comment:创建时间"`
 
 	// Associations
 	User *User `json:"-" gorm:"foreignKey:UserID"`
@@ -123,23 +119,23 @@ func (Session) TableName() string {
 
 // LoginHistory represents a login attempt record.
 type LoginHistory struct {
-	ID            uint        `json:"id" gorm:"primaryKey"`
-	UserID        *uint       `json:"user_id,omitempty" gorm:"index:idx_login_user_id"`
-	LoginMethod   LoginMethod `json:"login_method" gorm:"size:20;not null"`
-	Success       bool        `json:"success" gorm:"index:idx_login_success"`
-	FailureReason *string     `json:"failure_reason,omitempty" gorm:"size:255"`
+	ID            uint        `json:"id" gorm:"primaryKey;comment:主键"`
+	UserID        *uint       `json:"user_id,omitempty" gorm:"index:idx_login_user_id;comment:用户ID"`
+	LoginMethod   LoginMethod `json:"login_method" gorm:"size:20;not null;comment:登录方式"`
+	Success       bool        `json:"success" gorm:"index:idx_login_success;comment:是否成功"`
+	FailureReason *string     `json:"failure_reason,omitempty" gorm:"size:255;comment:失败原因"`
 
 	// Request info
-	IPAddress         *string `json:"ip_address,omitempty" gorm:"size:45"`
-	UserAgent         *string `json:"user_agent,omitempty" gorm:"size:500"`
-	DeviceFingerprint *string `json:"device_fingerprint,omitempty" gorm:"size:255"`
+	IPAddress         *string `json:"ip_address,omitempty" gorm:"size:45;comment:IP地址"`
+	UserAgent         *string `json:"user_agent,omitempty" gorm:"size:500;comment:用户代理"`
+	DeviceFingerprint *string `json:"device_fingerprint,omitempty" gorm:"size:255;comment:设备指纹"`
 
 	// Geo location
-	Country *string `json:"country,omitempty" gorm:"size:100"`
-	Region  *string `json:"region,omitempty" gorm:"size:100"`
-	City    *string `json:"city,omitempty" gorm:"size:100"`
+	Country *string `json:"country,omitempty" gorm:"size:100;comment:国家"`
+	Region  *string `json:"region,omitempty" gorm:"size:100;comment:地区/省份"`
+	City    *string `json:"city,omitempty" gorm:"size:100;comment:城市"`
 
-	CreatedAt time.Time `json:"created_at" gorm:"index:idx_login_created_at"`
+	CreatedAt time.Time `json:"created_at" gorm:"index:idx_login_created_at;comment:创建时间"`
 
 	// Associations
 	User *User `json:"-" gorm:"foreignKey:UserID"`
@@ -160,40 +156,4 @@ const (
 // TableName returns the table name for LoginHistory.
 func (LoginHistory) TableName() string {
 	return "login_history"
-}
-
-// AccountSecurityLog represents a security event log.
-type AccountSecurityLog struct {
-	ID          uint              `json:"id" gorm:"primaryKey"`
-	UserID      uint              `json:"user_id" gorm:"not null;index:idx_security_user_id"`
-	EventType   SecurityEventType `json:"event_type" gorm:"size:50;not null;index:idx_security_event_type"`
-	Description *string           `json:"description,omitempty" gorm:"type:text"`
-	IPAddress   *string           `json:"ip_address,omitempty" gorm:"size:45"`
-	UserAgent   *string           `json:"user_agent,omitempty" gorm:"size:500"`
-	Metadata    *string           `json:"metadata,omitempty" gorm:"type:json"`
-	CreatedAt   time.Time         `json:"created_at" gorm:"index:idx_security_created_at"`
-
-	// Associations
-	User *User `json:"-" gorm:"foreignKey:UserID"`
-}
-
-// SecurityEventType represents the type of security event.
-type SecurityEventType string
-
-const (
-	SecurityEventPasswordChanged        SecurityEventType = "password_changed"
-	SecurityEventEmailBound             SecurityEventType = "email_bound"
-	SecurityEventEmailUnbound           SecurityEventType = "email_unbound"
-	SecurityEventOAuthLinked            SecurityEventType = "oauth_linked"
-	SecurityEventOAuthUnlinked          SecurityEventType = "oauth_unlinked"
-	SecurityEventAccountLocked          SecurityEventType = "account_locked"
-	SecurityEventAccountUnlocked        SecurityEventType = "account_unlocked"
-	SecurityEventPasswordResetRequested SecurityEventType = "password_reset_requested"
-	SecurityEventSuspiciousActivity     SecurityEventType = "suspicious_activity"
-	SecurityEventSessionRevoked         SecurityEventType = "session_revoked"
-)
-
-// TableName returns the table name for AccountSecurityLog.
-func (AccountSecurityLog) TableName() string {
-	return "account_security_log"
 }

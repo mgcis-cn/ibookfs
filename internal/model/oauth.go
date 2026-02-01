@@ -5,32 +5,32 @@ import "time"
 
 // OAuthIdentity represents an OAuth identity linked to a user.
 type OAuthIdentity struct {
-	ID             uint   `json:"id" gorm:"primaryKey"`
-	UserID         uint   `json:"user_id" gorm:"not null;index:idx_oauth_user_id"`
-	Provider       string `json:"provider" gorm:"size:20;not null;index:idx_oauth_provider"`
-	ProviderUserID string `json:"provider_user_id" gorm:"size:255;not null"`
+	ID             uint   `json:"id" gorm:"primaryKey;comment:主键"`
+	UserID         uint   `json:"user_id" gorm:"not null;index:idx_oauth_user_id;comment:用户ID"`
+	Provider       string `json:"provider" gorm:"size:20;not null;index:idx_oauth_provider;comment:OAuth提供商"`
+	ProviderUserID string `json:"provider_user_id" gorm:"size:255;not null;comment:第三方平台用户ID"`
 
 	// Provider info
-	ProviderUsername *string `json:"provider_username,omitempty" gorm:"size:255"`
-	ProviderEmail    *string `json:"provider_email,omitempty" gorm:"size:255"`
+	ProviderUsername *string `json:"provider_username,omitempty" gorm:"size:255;comment:第三方平台用户名"`
+	ProviderEmail    *string `json:"provider_email,omitempty" gorm:"size:255;comment:第三方平台邮箱"`
 
 	// OAuth tokens (encrypted)
-	AccessToken    *string    `json:"-" gorm:"type:text"`
-	RefreshToken   *string    `json:"-" gorm:"type:text"`
-	TokenExpiresAt *time.Time `json:"token_expires_at,omitempty"`
-	Scope          *string    `json:"scope,omitempty" gorm:"size:500"`
+	AccessToken    *string    `json:"-" gorm:"type:text;comment:OAuth访问令牌"`
+	RefreshToken   *string    `json:"-" gorm:"type:text;comment:OAuth刷新令牌"`
+	TokenExpiresAt *time.Time `json:"token_expires_at,omitempty" gorm:"comment:令牌过期时间"`
+	Scope          *string    `json:"scope,omitempty" gorm:"size:500;comment:OAuth授权范围"`
 
 	// Profile data from provider
-	ProfileData *string `json:"-" gorm:"type:json"`
+	ProfileData *string `json:"-" gorm:"type:longtext;comment:第三方平台用户资料（JSON）"`
 
 	// Link status
-	IsPrimary  bool       `json:"is_primary" gorm:"default:false;index:idx_oauth_is_primary"`
-	LinkedAt   *time.Time `json:"linked_at,omitempty"`
-	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	IsPrimary  bool       `json:"is_primary" gorm:"default:false;index:idx_oauth_is_primary;comment:是否为主账号"`
+	LinkedAt   *time.Time `json:"linked_at,omitempty" gorm:"comment:绑定时间"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty" gorm:"comment:最后使用时间"`
 
 	// Timestamps
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time `json:"created_at" gorm:"comment:创建时间"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"comment:更新时间"`
 
 	// Associations
 	User *User `json:"-" gorm:"foreignKey:UserID"`

@@ -59,7 +59,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&model.EmailVerificationCode{},
 		&model.Session{},
 		&model.LoginHistory{},
-		&model.AccountSecurityLog{},
 	}
 
 	for _, m := range models {
