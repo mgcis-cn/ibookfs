@@ -59,6 +59,10 @@ func AutoMigrate(db *gorm.DB) error {
 		&model.EmailVerificationCode{},
 		&model.Session{},
 		&model.LoginHistory{},
+		&model.Image{},
+		&model.ImageVariant{},
+		&model.ImageGroup{},
+		&model.ImageGroupMember{},
 	}
 
 	for _, m := range models {

@@ -11,11 +11,21 @@ import (
 	"github.com/mgcis-cn/ibookfs/internal/middleware"
 	"github.com/mgcis-cn/ibookfs/internal/model"
 	"github.com/mgcis-cn/ibookfs/internal/pkg/util"
+	"github.com/mgcis-cn/ibookfs/internal/repository"
 	"github.com/mgcis-cn/ibookfs/internal/service"
+	"github.com/mgcis-cn/ibookfs/internal/service/processor"
+	"github.com/mgcis-cn/ibookfs/internal/service/storage"
+	"github.com/mgcis-cn/ibookfs/internal/worker"
 )
 
-// Setup initializes the router with all routes.
-func Setup(cfg *config.Config) *gin.Engine {
+// App holds the application components including the worker for lifecycle management.
+type App struct {
+	Router  *gin.Engine
+	Worker  *worker.ImageWorker
+}
+
+// Setup initializes the router with all routes and returns the App with worker.
+func Setup(cfg *config.Config) *App {
 	r := gin.Default()
 
 	// CORS configuration
@@ -72,6 +82,48 @@ func Setup(cfg *config.Config) *gin.Engine {
 		SkipAuthPaths: cfg.Server.SkipAuthPaths,
 	})
 
+	// Initialize image storage
+	imgStorage, err := storage.NewLocalStorage(
+		cfg.Storage.Local.BasePath,
+		cfg.Storage.Local.BaseURL,
+	)
+	if err != nil {
+		panic("Failed to initialize image storage: " + err.Error())
+	}
+
+	// Initialize image processor
+	processorCfg := processor.Config{
+		BlurHashEnabled: cfg.Image.Processing.BlurHashEnabled,
+		AllowedTypes:    cfg.Image.Upload.AllowedTypes,
+		MaxFileSize:     cfg.Image.Upload.MaxFileSize,
+	}
+	for _, v := range cfg.Image.Processing.Variants {
+		processorCfg.Variants = append(processorCfg.Variants, processor.VariantConfig{
+			Name:      v.Name,
+			MaxWidth:  v.MaxWidth,
+			MaxHeight: v.MaxHeight,
+		})
+	}
+	imgProcessor := processor.NewProcessor(processorCfg)
+
+	// Initialize image repository
+	imageRepo := repository.NewImageRepository()
+
+	// Initialize image worker (without service initially)
+	imageWorker := worker.NewImageWorker(nil, worker.DefaultConfig())
+
+	// Initialize image service
+	imageSvc := service.NewImageService(imgStorage, imgProcessor, imageRepo, imageWorker)
+	handler.SetImageService(imageSvc)
+
+	// Set the service for worker and start it
+	imageWorker.SetService(imageSvc)
+	imageWorker.Start()
+	// Note: defer removed - worker will be stopped in main.go on app shutdown
+
+	// Serve static files (generic storage, can be used for images, documents, etc.)
+	r.Static(cfg.Storage.Local.BaseURL, cfg.Storage.Local.BasePath)
+
 	// API v1
 	v1 := r.Group("/api/v1")
 	{
@@ -80,7 +132,13 @@ func Setup(cfg *config.Config) *gin.Engine {
 
 		// Book routes (protected)
 		handler.RegisterBookRoutes(v1, authMiddleware)
+
+		// Image routes (protected)
+		handler.RegisterImageRoutes(v1, authMiddleware)
 	}
 
-	return r
+	return &App{
+		Router: r,
+		Worker: imageWorker,
+	}
 }

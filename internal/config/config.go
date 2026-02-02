@@ -19,6 +19,8 @@ type Config struct {
 	JWT      JWTConfig      `yaml:"jwt"`
 	OAuth    OAuthConfig    `yaml:"oauth"`
 	Email    EmailConfig    `yaml:"email"`
+	Image    ImageConfig    `yaml:"image"`
+	Storage  StorageConfig  `yaml:"storage"`
 }
 
 // ServerConfig holds server-related configuration.
@@ -75,6 +77,71 @@ type EmailConfig struct {
 	FromName string `yaml:"from_name"`
 }
 
+// ImageConfig holds image-related configuration.
+type ImageConfig struct {
+	Processing ImageProcessingConfig `yaml:"processing"`
+	Upload     ImageUploadConfig     `yaml:"upload"`
+}
+
+// StorageConfig holds storage configuration (root level).
+type StorageConfig struct {
+	Default string            `yaml:"default"` // local, oss, s3, cos
+	Local   LocalStorageConfig `yaml:"local"`
+	OSS     OSSConfig         `yaml:"oss"`
+	S3      S3Config          `yaml:"s3"`
+	COS     COSConfig         `yaml:"cos"`
+}
+
+// LocalStorageConfig holds local storage configuration.
+type LocalStorageConfig struct {
+	BasePath string `yaml:"base_path"`
+	BaseURL  string `yaml:"base_url"`
+}
+
+// OSSConfig holds Alibaba Cloud OSS configuration.
+type OSSConfig struct {
+	Endpoint        string `yaml:"endpoint"`
+	AccessKeyID     string `yaml:"access_key_id"`
+	AccessKeySecret string `yaml:"access_key_secret"`
+	BucketName      string `yaml:"bucket_name"`
+}
+
+// S3Config holds AWS S3 configuration.
+type S3Config struct {
+	Region          string `yaml:"region"`
+	AccessKeyID     string `yaml:"access_key_id"`
+	SecretAccessKey string `yaml:"secret_access_key"`
+	Bucket          string `yaml:"bucket"`
+	Endpoint        string `yaml:"endpoint"` // Optional, for S3-compatible services
+}
+
+// COSConfig holds Tencent Cloud COS configuration.
+type COSConfig struct {
+	SecretID     string `yaml:"secret_id"`
+	SecretKey    string `yaml:"secret_key"`
+	BucketName   string `yaml:"bucket_name"`
+	BucketRegion string `yaml:"bucket_region"`
+}
+
+// ImageProcessingConfig holds image processing configuration.
+type ImageProcessingConfig struct {
+	BlurHashEnabled bool           `yaml:"blurhash_enabled"`
+	Variants        []VariantSpec  `yaml:"variants"`
+}
+
+// VariantSpec defines a variant specification.
+type VariantSpec struct {
+	Name      string `yaml:"name"`
+	MaxWidth  int    `yaml:"max_width"`
+	MaxHeight int    `yaml:"max_height"`
+}
+
+// ImageUploadConfig holds image upload configuration.
+type ImageUploadConfig struct {
+	MaxFileSize  int64    `yaml:"max_file_size"`  // bytes
+	AllowedTypes []string `yaml:"allowed_types"`
+}
+
 // defaults returns a Config with default values.
 func defaults() *Config {
 	return &Config{
@@ -99,6 +166,31 @@ func defaults() *Config {
 		JWT: JWTConfig{
 			Secret:     "your-secret-key-change-in-production",
 			Expiration: 24,
+		},
+		Storage: StorageConfig{
+			Default: "local",
+			Local: LocalStorageConfig{
+				BasePath: "./storages",
+				BaseURL:  "/storages",
+			},
+		},
+		Image: ImageConfig{
+			Processing: ImageProcessingConfig{
+				BlurHashEnabled: true,
+				Variants: []VariantSpec{
+					{Name: "small", MaxWidth: 400, MaxHeight: 400},
+					{Name: "medium", MaxWidth: 1200, MaxHeight: 1200},
+				},
+			},
+			Upload: ImageUploadConfig{
+				MaxFileSize: 50 * 1024 * 1024, // 50MB
+				AllowedTypes: []string{
+					"image/jpeg",
+					"image/png",
+					"image/gif",
+					"image/webp",
+				},
+			},
 		},
 	}
 }

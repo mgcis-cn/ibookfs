@@ -23,11 +23,11 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	r := router.Setup(cfg)
+	app := router.Setup(cfg)
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Address,
-		Handler: r,
+		Handler: app.Router,
 	}
 
 	go func() {
@@ -41,6 +41,12 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down server...")
+
+	// Stop worker first to finish ongoing image processing
+	if app.Worker != nil {
+		log.Println("Stopping image worker...")
+		app.Worker.Stop()
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
