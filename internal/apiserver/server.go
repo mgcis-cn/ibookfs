@@ -1,0 +1,159 @@
+package apiserver
+
+import (
+	"context"
+	"os"
+
+	"github.com/mgcis-cn/ibookfs/cmd/apiserver/app/options"
+	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz"
+	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/oauth"
+	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/processor"
+	"github.com/mgcis-cn/ibookfs/internal/apiserver/handler"
+	mw "github.com/mgcis-cn/ibookfs/internal/apiserver/middleware"
+	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
+	"github.com/mgcis-cn/ibookfs/internal/apiserver/store"
+	"github.com/mgcis-cn/ibookfs/internal/apiserver/worker"
+	"github.com/mgcis-cn/ibookfs/internal/pkg/bootstrap"
+	v1 "github.com/mgcis-cn/ibookfs/pkg/api/apiserver/v1"
+	"github.com/mgcis-cn/ibookfs/pkg/authn/jwt"
+	"github.com/mgcis-cn/ibookfs/pkg/database"
+	"github.com/mgcis-cn/ibookfs/pkg/email"
+	"github.com/mgcis-cn/ibookfs/pkg/storage"
+
+	"github.com/go-kratos/kratos/v2"
+	"github.com/go-kratos/kratos/v2/middleware"
+	"github.com/go-kratos/kratos/v2/transport"
+)
+
+var (
+	ID, _ = os.Hostname()
+)
+
+// ServerConfig holds server configuration.
+type ServerConfig struct {
+	cfg         *Config
+	handler     v1.ApiServerHTTPServer
+	middlewares []middleware.Middleware
+}
+
+// NewServerConfig creates a new ServerConfig from options.
+func NewServerConfig(opts *options.ServerRunOptions) *ServerConfig {
+	return &ServerConfig{
+		cfg: NewConfig(opts),
+	}
+}
+
+// New creates and starts a new Kratos application.
+func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
+	ctx := context.Background()
+	opts := server.cfg.ServerRunOptions
+
+	// App info
+	appInfo := bootstrap.NewAppInfo(ID, opts.App.Name, opts.App.Version)
+	logger := bootstrap.NewLogger(appInfo)
+	appConfig := bootstrap.AppConfig{Info: appInfo, Logger: logger}
+
+	databaseF, err := database.NewFactory(ctx, opts.Data.Database, func(opt *options.DatabaseOptions) string {
+		return opt.Name
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	storageF, err := storage.NewFactory(opts.Data.Storage, func(opts *options.StorageOptions) string {
+		return opts.Name
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	emailF, err := email.NewFactory(opts.Email, func(opts *options.EmailOptions) string {
+		return opts.Name
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Image processor
+	imgProcessor := newImageProcessor(opts)
+	imageWorker := worker.NewImageWorker(nil, worker.DefaultConfig())
+	db, err := databaseF.MustGet("default")
+	if err != nil {
+		return nil, nil, err
+	}
+	oss, err := storageF.MustGet("default")
+	if err != nil {
+		return nil, nil, err
+	}
+	emailSvc, err := emailF.MustGet("default")
+	if err != nil {
+		return nil, nil, err
+	}
+	// OAuth configuration
+	auth := server.cfg.Auth
+	oauthConfigs := map[model.OAuthProvider]model.OAuthConfig{
+		model.OAuthProviderGitHub: oauth.GetOAuthConfig(
+			model.OAuthProviderGitHub,
+			auth.OAuth.GitHub.ClientID,
+			auth.OAuth.GitHub.ClientSecret,
+			auth.OAuth.GitHub.RedirectURL,
+		),
+		model.OAuthProviderGitee: oauth.GetOAuthConfig(
+			model.OAuthProviderGitee,
+			auth.OAuth.Gitee.ClientID,
+			auth.OAuth.Gitee.ClientSecret,
+			auth.OAuth.Gitee.RedirectURL,
+		),
+	}
+	repo := store.New(db)
+
+	// Biz layer
+	b := biz.New(opts.Auth.JWT, emailSvc, oauthConfigs, repo, oss, imgProcessor, imageWorker)
+	imageWorker.SetService(b.Image())
+	imageWorker.Start()
+
+	// Handler and HTTP server
+	server.handler = handler.New(oauthConfigs, b)
+	server.middlewares = mw.NewMiddlewares(&mw.Config{
+		SkipAuthPaths: []string{
+			"/health",
+			"/api/v1/auth/send-code",
+			"/api/v1/auth/login",
+			"/api/v1/auth/register",
+			"/api/v1/auth/oauth/authorize",
+			"/api/v1/auth/oauth/callback",
+			"/api/v1/auth/refresh",
+			"/api/v1/auth/config",
+		},
+		JWTManager: jwt.New(
+			jwt.WithSigningKey(opts.Auth.JWT.Secret),
+			jwt.WithExpired(opts.Auth.JWT.Expired.Duration),
+		),
+		AccountSecretService: b.AccountSecret(),
+	})
+	httpSrv := server.NewHTTPServer()
+	app = bootstrap.NewApp(appConfig, transport.Server(httpSrv))
+
+	cleanup = func() {
+		imageWorker.Stop()
+		err = databaseF.Close()
+	}
+	return app, cleanup, nil
+}
+
+// newImageProcessor creates image processor from options.
+func newImageProcessor(opts *options.ServerRunOptions) *processor.Processor {
+	cfg := processor.Config{
+		BlurHashEnabled: opts.Server.Image.Processing.BlurHashEnabled,
+		AllowedTypes:    opts.Server.Upload.AllowedTypes,
+		MaxFileSize:     opts.Server.Upload.MaxFileSize,
+	}
+	for _, v := range opts.Server.Image.Processing.Variants {
+		cfg.Variants = append(cfg.Variants, processor.VariantConfig{
+			Name:      v.Name,
+			MaxWidth:  v.MaxWidth,
+			MaxHeight: v.MaxHeight,
+		})
+	}
+	return processor.NewProcessor(cfg)
+}
