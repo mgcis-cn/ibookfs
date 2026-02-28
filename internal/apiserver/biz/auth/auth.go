@@ -30,6 +30,7 @@ type AuthBiz interface {
 	UnlinkOAuth(ctx context.Context, userID uint, provider string, providerUserID *string) error
 	UpdateProfile(ctx context.Context, userID uint, updates map[string]interface{}) error
 	ValidateAccessToken(ctx context.Context, tokenString string) (uint, error)
+	CreateSession(ctx context.Context, user *model2.User, token, ipAddress, userAgent string) error
 }
 
 // authBiz is the concrete implementation of AuthBiz.
@@ -184,7 +185,7 @@ func (s *authBiz) Login(ctx context.Context, req LoginRequest, ipAddress, userAg
 	oauthIdentities, _ := userStore.ListOAuthIdentities(ctx, user.ID)
 
 	// Create session
-	_ = s.createSession(ctx, user, tokenPair.Token, ipAddress, userAgent)
+	_ = s.CreateSession(ctx, user, tokenPair.Token, ipAddress, userAgent)
 
 	return &AuthResponse{
 		User:           user,
@@ -248,7 +249,7 @@ func (s *authBiz) Register(ctx context.Context, req RegisterRequest, ipAddress, 
 	s.logLoginHistory(ctx, user, model2.LoginMethodEmail, true, "", ipAddress, userAgent)
 
 	// Create session
-	_ = s.createSession(ctx, user, tokenPair.Token, ipAddress, userAgent)
+	_ = s.CreateSession(ctx, user, tokenPair.Token, ipAddress, userAgent)
 
 	return &AuthResponse{
 		User:         user,
@@ -432,7 +433,7 @@ func (s *authBiz) logLoginHistory(ctx context.Context, user *model2.User, method
 	_ = userStore.CreateLoginHistory(ctx, history)
 }
 
-func (s *authBiz) createSession(ctx context.Context, user *model2.User, token, ipAddress, userAgent string) error {
+func (s *authBiz) CreateSession(ctx context.Context, user *model2.User, token, ipAddress, userAgent string) error {
 	userStore := s.repo.User()
 	tokenHash := util.HashToken(token)
 	expiresAt := time.Now().Add(24 * time.Hour)

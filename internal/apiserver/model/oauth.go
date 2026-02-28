@@ -103,3 +103,18 @@ type OAuthTokenResponse struct {
 	RefreshToken string    `json:"refresh_token"`
 	Scope        string    `json:"scope"`
 }
+
+// OAuthState represents an OAuth state token for preventing CSRF and duplicate processing.
+type OAuthState struct {
+	ID        uint      `json:"id" gorm:"primaryKey;comment:主键"`
+	State     string    `json:"state" gorm:"size:255;not null;uniqueIndex:idx_oauth_state;comment:OAuth状态令牌"`
+	Provider  string    `json:"provider" gorm:"size:20;not null;comment:OAuth提供商"`
+	Processed bool      `json:"processed" gorm:"default:false;comment:是否已处理"`
+	ExpiresAt time.Time `json:"expires_at" gorm:"not null;index:idx_oauth_state_expires;comment:过期时间"`
+	CreatedAt time.Time `json:"created_at" gorm:"comment:创建时间"`
+}
+
+// TableName returns the table name for OAuthState.
+func (*OAuthState) TableName() string {
+	return "oauth_states"
+}

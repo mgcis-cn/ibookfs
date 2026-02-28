@@ -21,9 +21,9 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/pages/register/index.vue'),
     meta: { title: '注册 - iBookFS', requiresAuth: false },
   },
-  // OAuth callback page
+  // OAuth callback page with provider in path
   {
-    path: '/auth/callback',
+    path: '/auth/:provider/callback',
     name: 'OAuthCallback',
     component: () => import('@/pages/auth/callback/index.vue'),
     meta: { title: 'OAuth 登录 - iBookFS', requiresAuth: false },

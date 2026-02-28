@@ -46,6 +46,12 @@ type IUserStore interface {
 
 	// Login history operations
 	CreateLoginHistory(ctx context.Context, history *model.LoginHistory) error
+
+	// OAuth state operations (for CSRF and duplicate prevention)
+	CreateOAuthState(ctx context.Context, state *model.OAuthState) error
+	GetOAuthState(ctx context.Context, stateToken string) (*model.OAuthState, error)
+	MarkOAuthStateProcessed(ctx context.Context, stateToken string) error
+	DeleteExpiredOAuthStates(ctx context.Context) error
 }
 
 // userStore implements IUserStore interface.
@@ -236,4 +242,27 @@ func (s *userStore) GetValidSession(ctx context.Context, tokenHash string) (*mod
 
 func (s *userStore) CreateLoginHistory(ctx context.Context, history *model.LoginHistory) error {
 	return s.db.Conn(ctx).Create(history).Error
+}
+
+// OAuth state operations
+
+func (s *userStore) CreateOAuthState(ctx context.Context, state *model.OAuthState) error {
+	return s.db.Conn(ctx).Create(state).Error
+}
+
+func (s *userStore) GetOAuthState(ctx context.Context, stateToken string) (*model.OAuthState, error) {
+	var state model.OAuthState
+	err := s.db.Conn(ctx).Where("state = ?", stateToken).First(&state).Error
+	return &state, err
+}
+
+func (s *userStore) MarkOAuthStateProcessed(ctx context.Context, stateToken string) error {
+	return s.db.Conn(ctx).Model(&model.OAuthState{}).
+		Where("state = ?", stateToken).
+		Update("processed", true).
+		Error
+}
+
+func (s *userStore) DeleteExpiredOAuthStates(ctx context.Context) error {
+	return s.db.Conn(ctx).Where("expires_at < ?", time.Now()).Delete(&model.OAuthState{}).Error
 }

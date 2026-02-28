@@ -5,6 +5,8 @@ import (
 
 	"github.com/mgcis-cn/ibookfs/cmd/apiserver/app/options"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver"
+	_ "github.com/mgcis-cn/ibookfs/pkg/authn/oauth/sources/gitee"
+	_ "github.com/mgcis-cn/ibookfs/pkg/authn/oauth/sources/github"
 	_ "github.com/mgcis-cn/ibookfs/pkg/database/sources/mysql"
 	_ "github.com/mgcis-cn/ibookfs/pkg/database/sources/postgres"
 	_ "github.com/mgcis-cn/ibookfs/pkg/database/sources/sqlite"

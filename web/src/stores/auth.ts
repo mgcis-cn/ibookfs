@@ -103,11 +103,14 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authApi.getAuthConfig()
       if (response.success && response.data) {
+        // Map snake_case API response to camelCase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data = response.data as any
         authConfig.value = {
-          oauthProviders: response.data.oauthProviders,
-          emailEnabled: response.data.emailEnabled,
-          oauthEnabled: response.data.oauthEnabled,
-          oauth: response.data.oauth,
+          oauthProviders: data.oauth_providers || data.oauthProviders || [],
+          emailEnabled: data.email_enabled ?? data.emailEnabled ?? true,
+          oauthEnabled: data.oauth_enabled ?? data.oauthEnabled ?? false,
+          oauth: data.oauth,
         }
       }
     } catch {
@@ -239,9 +242,12 @@ export const useAuthStore = defineStore('auth', () => {
         return null
       }
 
+      // Handle both snake_case and camelCase field names
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = response.data as any
       return {
-        url: response.data.authorizeUrl,
-        state: response.data.state,
+        url: data.authorize_url || data.authorizeUrl,
+        state: data.state,
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取授权链接失败')
@@ -268,7 +274,10 @@ export const useAuthStore = defineStore('auth', () => {
         return false
       }
 
-      setAuth(response.data)
+      // Handle nested Data structure from backend
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = (response.data as any)?.Data || response.data
+      setAuth(data)
       return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'OAuth 登录失败')

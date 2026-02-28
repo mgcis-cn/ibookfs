@@ -6,16 +6,15 @@ import (
 
 	"github.com/mgcis-cn/ibookfs/cmd/apiserver/app/options"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz"
-	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/oauth"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/processor"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/handler"
 	mw "github.com/mgcis-cn/ibookfs/internal/apiserver/middleware"
-	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/store"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/worker"
 	"github.com/mgcis-cn/ibookfs/internal/pkg/bootstrap"
 	v1 "github.com/mgcis-cn/ibookfs/pkg/api/apiserver/v1"
 	"github.com/mgcis-cn/ibookfs/pkg/authn/jwt"
+	"github.com/mgcis-cn/ibookfs/pkg/authn/oauth"
 	"github.com/mgcis-cn/ibookfs/pkg/database"
 	"github.com/mgcis-cn/ibookfs/pkg/email"
 	"github.com/mgcis-cn/ibookfs/pkg/storage"
@@ -68,6 +67,11 @@ func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
 		return nil, nil, err
 	}
 
+	oauthF, err := oauth.NewFactory(opts.Auth.OAuth, oauth.WithNameFunc)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// Image processor
 	imgProcessor := newImageProcessor(opts)
 	imageWorker := worker.NewImageWorker(nil, worker.DefaultConfig())
@@ -83,31 +87,15 @@ func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	// OAuth configuration
-	auth := server.cfg.Auth
-	oauthConfigs := map[model.OAuthProvider]model.OAuthConfig{
-		model.OAuthProviderGitHub: oauth.GetOAuthConfig(
-			model.OAuthProviderGitHub,
-			auth.OAuth.GitHub.ClientID,
-			auth.OAuth.GitHub.ClientSecret,
-			auth.OAuth.GitHub.RedirectURL,
-		),
-		model.OAuthProviderGitee: oauth.GetOAuthConfig(
-			model.OAuthProviderGitee,
-			auth.OAuth.Gitee.ClientID,
-			auth.OAuth.Gitee.ClientSecret,
-			auth.OAuth.Gitee.RedirectURL,
-		),
-	}
 	repo := store.New(db)
 
-	// Biz layer
-	b := biz.New(opts.Auth.JWT, emailSvc, oauthConfigs, repo, oss, imgProcessor, imageWorker)
+	// Biz layer - use OAuth Factory
+	b := biz.New(opts.Auth.JWT, emailSvc, oauthF, repo, oss, imgProcessor, imageWorker)
 	imageWorker.SetService(b.Image())
 	imageWorker.Start()
 
 	// Handler and HTTP server
-	server.handler = handler.New(oauthConfigs, b)
+	server.handler = handler.New(oauthF, b)
 	server.middlewares = mw.NewMiddlewares(&mw.Config{
 		SkipAuthPaths: []string{
 			"/health",
@@ -120,7 +108,7 @@ func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
 			"/api/v1/auth/config",
 		},
 		JWTManager: jwt.New(
-			jwt.WithSigningKey(opts.Auth.JWT.Secret),
+			jwt.WithSigningKey([]byte(opts.Auth.JWT.Secret)),
 			jwt.WithExpired(opts.Auth.JWT.Expired.Duration),
 		),
 		AccountSecretService: b.AccountSecret(),

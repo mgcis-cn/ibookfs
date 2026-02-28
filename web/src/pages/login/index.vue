@@ -496,30 +496,66 @@ const handleOAuthLogin = async (provider: OAuthProvider) => {
   oauthLoading.value[provider] = true
 
   try {
-    const redirectUri = `${window.location.origin}/auth/callback`
+    // Use provider-specific callback URL (e.g., /auth/github/callback)
+    const redirectUri = `${window.location.origin}/auth/${provider}/callback`
     const result = await authStore.getOAuthAuthorizeUrl(provider, redirectUri)
 
-    if (result) {
-      sessionStorage.setItem('oauth_state', result.state)
-      sessionStorage.setItem('oauth_provider', provider)
+    if (!result || !result.url) {
+      toastStore.error(authStore.error || '获取授权链接失败')
+      oauthLoading.value[provider] = false
+      return
+    }
 
-      showOAuthModal.value = true
-      oauthWindow = window.open(result.url, 'oauth', 'width=600,height=700,scrollbars=yes')
+    // Store state for validation (minimal localStorage usage)
+    localStorage.setItem('oauth_state', result.state)
 
-      const checkPopup = setInterval(() => {
+    // Open popup with OAuth URL directly
+    showOAuthModal.value = true
+    oauthWindow = window.open(result.url, 'oauth', 'width=600,height=700,scrollbars=yes')
+
+    if (!oauthWindow) {
+      toastStore.error('弹窗被浏览器阻止，请允许弹窗后重试')
+      closeOAuthModal()
+      oauthLoading.value[provider] = false
+      return
+    }
+
+    // Check popup status periodically
+    const checkPopup = setInterval(() => {
+      try {
+        // Check if popup is closed
         if (oauthWindow?.closed) {
           clearInterval(checkPopup)
           closeOAuthModal()
           oauthLoading.value[provider] = false
+          return
         }
-      }, 500)
-    } else {
-      toastStore.error(authStore.error || '获取授权链接失败')
-    }
-  } finally {
-    if (!showOAuthModal.value) {
-      oauthLoading.value[provider] = false
-    }
+        
+        // Try to detect rate limit errors by checking popup URL/title
+        // Note: This only works for same-origin URLs
+        const popupUrl = oauthWindow?.location?.href
+        if (popupUrl && popupUrl.includes('github.com') && popupUrl.includes('login/oauth')) {
+          // Check if we've been stuck on GitHub page too long (rate limited)
+          // GitHub rate limit page stays on authorize URL without redirecting
+        }
+      } catch {
+        // Cross-origin access denied - popup is on external domain, which is expected
+      }
+    }, 500)
+    
+    // Auto-close after 2 minutes if no response (likely rate limited)
+    setTimeout(() => {
+      if (oauthWindow && !oauthWindow.closed) {
+        oauthWindow.close()
+        closeOAuthModal()
+        oauthLoading.value[provider] = false
+        toastStore.error('授权超时，可能是请求过于频繁，请等待几分钟后再试')
+      }
+    }, 120000)
+  } catch (err) {
+    closeOAuthModal()
+    toastStore.error('获取授权链接失败')
+    oauthLoading.value[provider] = false
   }
 }
 
@@ -528,13 +564,30 @@ const closeOAuthModal = () => {
   oauthWindow = null
 }
 
+// Prevent duplicate OAuth callback handling
+let oauthCallbackProcessing = false
+
 // Handle OAuth callback from popup
 const handleOAuthCallback = async (provider: OAuthProvider, code: string, state: string) => {
-  const savedState = sessionStorage.getItem('oauth_state')
-  const savedProvider = sessionStorage.getItem('oauth_provider')
+  // Prevent duplicate processing
+  if (oauthCallbackProcessing) return
+  oauthCallbackProcessing = true
+  
+  const savedState = localStorage.getItem('oauth_state')
 
-  if (state !== savedState || provider !== savedProvider) {
-    toastStore.error('授权验证失败')
+  // Clear localStorage immediately
+  localStorage.removeItem('oauth_state')
+
+  // Validate state only (provider comes from URL path now)
+  if (state !== savedState) {
+    toastStore.error('授权验证失败：状态不匹配')
+    oauthCallbackProcessing = false
+    return
+  }
+  
+  if (!provider) {
+    toastStore.error('授权验证失败：未知提供者')
+    oauthCallbackProcessing = false
     return
   }
 
@@ -555,10 +608,17 @@ const handleOAuthCallback = async (provider: OAuthProvider, code: string, state:
   } finally {
     oauthLoading.value[provider] = false
     closeOAuthModal()
+    oauthCallbackProcessing = false
   }
+}
 
-  sessionStorage.removeItem('oauth_state')
-  sessionStorage.removeItem('oauth_provider')
+// OAuth message handler reference for cleanup
+const handleOAuthMessage = (event: MessageEvent) => {
+  if (event.origin !== window.location.origin) return
+
+  if (event.data.type === 'oauth_callback') {
+    handleOAuthCallback(event.data.provider, event.data.code, event.data.state)
+  }
 }
 
 // Listen for OAuth callback message
@@ -575,13 +635,7 @@ onMounted(async () => {
 
   await authStore.loadConfig()
 
-  window.addEventListener('message', (event) => {
-    if (event.origin !== window.location.origin) return
-
-    if (event.data.type === 'oauth_callback') {
-      handleOAuthCallback(event.data.provider, event.data.code, event.data.state)
-    }
-  })
+  window.addEventListener('message', handleOAuthMessage)
 })
 
 onUnmounted(() => {
@@ -589,6 +643,8 @@ onUnmounted(() => {
   if (oauthWindow && !oauthWindow.closed) {
     oauthWindow.close()
   }
+  // Remove message listener to prevent memory leaks and duplicate handling
+  window.removeEventListener('message', handleOAuthMessage)
 })
 </script>
 

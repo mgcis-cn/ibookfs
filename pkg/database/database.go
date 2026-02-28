@@ -79,6 +79,7 @@ func AutoMigrate(db Database) error {
 		&model.Book{},
 		&model.User{},
 		&model.OAuthIdentity{},
+		&model.OAuthState{},
 		&model.EmailVerificationCode{},
 		&model.Session{},
 		&model.LoginHistory{},

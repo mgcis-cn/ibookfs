@@ -1,11 +1,10 @@
 package options
 
 import (
+	oauthSources "github.com/mgcis-cn/ibookfs/pkg/authn/oauth/sources"
 	"github.com/mgcis-cn/ibookfs/pkg/database/sources"
 	emailSources "github.com/mgcis-cn/ibookfs/pkg/email/sources"
 	"github.com/mgcis-cn/ibookfs/pkg/options"
-	"github.com/mgcis-cn/ibookfs/pkg/options/oauth/sources/gitee"
-	"github.com/mgcis-cn/ibookfs/pkg/options/oauth/sources/github"
 	storageSources "github.com/mgcis-cn/ibookfs/pkg/storage/sources"
 
 	"github.com/spf13/pflag"
@@ -41,6 +40,13 @@ func defaultEmailOptions() *EmailOptions {
 	}
 }
 
+func defaultOAuthOptions() *OAuthOptions {
+	return &OAuthOptions{
+		Name:  "default",
+		Gitee: options.NewGiteeOptions(),
+	}
+}
+
 func NewServerRunOptions() *ServerRunOptions {
 	return &ServerRunOptions{
 		App: &AppOptions{},
@@ -60,9 +66,8 @@ func NewServerRunOptions() *ServerRunOptions {
 		},
 		Auth: &AuthOptions{
 			JWT: options.NewJWTOptions(),
-			OAuth: &OAuthOptions{
-				GitHub: github.New(),
-				Gitee:  gitee.New(),
+			OAuth: []*OAuthOptions{
+				defaultOAuthOptions(),
 			},
 		},
 		Email: []*EmailOptions{
@@ -175,7 +180,7 @@ func (o *StorageOptions) AddFlags(fs *pflag.FlagSet) {
 
 type AuthOptions struct {
 	JWT   *options.JWTOptions `json:"jwt" yaml:"jwt" mapstructure:"jwt"`
-	OAuth *OAuthOptions       `json:"oauth" yaml:"oauth" mapstructure:"oauth"`
+	OAuth []*OAuthOptions     `json:"oauth" yaml:"oauth" mapstructure:"oauth"`
 }
 
 func (o *AuthOptions) AddFlags(fs *pflag.FlagSet) {
@@ -184,27 +189,42 @@ func (o *AuthOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 	var fss flag.NamedFlagSets
 	o.JWT.AddFlags(fss.FlagSet(options.FlagNameFunc(fs, "jwt")))
-	o.OAuth.AddFlags(fss.FlagSet(options.FlagNameFunc(fs, "oauth")))
+	if len(o.OAuth) > 0 {
+		o.OAuth[0].AddFlags(fss.FlagSet(options.FlagNameFunc(fs, "oauth")))
+	}
 	for _, f := range fss.FlagSets {
 		fs.AddFlagSet(f)
 	}
 }
 
 type OAuthOptions struct {
-	GitHub *github.Source `json:"github" yaml:"github" mapstructure:"github"`
-	Gitee  *gitee.Source  `json:"gitee" yaml:"gitee" mapstructure:"gitee"`
+	Name   string                 `json:"name" yaml:"name" mapstructure:"name"`
+	GitHub *options.GithubOptions `json:"github" yaml:"github" mapstructure:"github"`
+	Gitee  *options.GiteeOptions  `json:"gitee" yaml:"gitee" mapstructure:"gitee"`
 }
 
 func (o *OAuthOptions) AddFlags(fs *pflag.FlagSet) {
 	if o == nil {
 		return
 	}
+	fs.StringVar(&o.Name, options.FlagNameFunc(fs, "name"), o.Name, "OAuth provider name.")
 	var fss flag.NamedFlagSets
 	o.GitHub.AddFlags(fss.FlagSet(options.FlagNameFunc(fs, "github")))
 	o.Gitee.AddFlags(fss.FlagSet(options.FlagNameFunc(fs, "gitee")))
 	for _, f := range fss.FlagSets {
 		fs.AddFlagSet(f)
 	}
+}
+
+// ActiveConfig returns the active OAuth configuration implementing oauth sources.Config.
+func (o *OAuthOptions) ActiveConfig() oauthSources.Config {
+	if o.GitHub != nil && o.GitHub.ClientID != "" {
+		return o.GitHub
+	}
+	if o.Gitee != nil && o.Gitee.ClientID != "" {
+		return o.Gitee
+	}
+	return nil
 }
 
 type EmailOptions struct {

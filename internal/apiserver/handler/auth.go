@@ -3,8 +3,9 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
-	"time"
 
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/auth"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
@@ -142,10 +143,10 @@ func (h *handler) OAuthCallback(ctx context.Context, req *v1.OAuthCallbackReques
 	)
 
 	if err != nil {
-		return &v1.OAuthCallbackResponse{Data: resp}, err
+		return &v1.OAuthCallbackResponse{}, err
 	}
 
-	return &v1.OAuthCallbackResponse{}, nil
+	return &v1.OAuthCallbackResponse{Data: resp}, nil
 }
 
 // RefreshToken handles POST /auth/refresh
@@ -328,21 +329,16 @@ func (h *handler) UpdateProfile(ctx context.Context, req *v1.UpdateProfileReques
 // GetConfig handles GET /auth/config
 // Returns the authentication configuration including supported OAuth providers and email status
 func (h *handler) GetConfig(ctx context.Context, req *v1.GetConfigRequest) (*v1.GetConfigResponse, error) {
-	// Build list of supported OAuth providers
-	var supportedProviders []string
-	for provider, cfg := range h.oauthConfig {
-		if cfg.ClientID != "" && cfg.ClientSecret != "" {
-			supportedProviders = append(supportedProviders, string(provider))
-		}
-	}
+	// Build list of supported OAuth providers from OAuth Factory
+	supportedProviders := h.oauthFactory.GetProviderKinds()
 
 	// Check if email is enabled
 	emailEnabled := h.biz.Email().IsEmailEnabled()
 
 	// Helper function to safely check if provider is configured
-	isConfigured := func(provider model.OAuthProvider) bool {
-		cfg, exists := h.oauthConfig[provider]
-		return exists && cfg.ClientID != "" && cfg.ClientSecret != ""
+	isConfigured := func(name string) bool {
+		_, ok := h.oauthFactory.Get(name)
+		return ok
 	}
 
 	// Check if any OAuth provider is enabled
@@ -354,19 +350,19 @@ func (h *handler) GetConfig(ctx context.Context, req *v1.GetConfigRequest) (*v1.
 		OAuthEnabled:   oauthEnabled,
 		OAuth: map[string]interface{}{
 			"github": map[string]any{
-				"configured": isConfigured(model.OAuthProviderGitHub),
+				"configured": isConfigured("github"),
 			},
 			"gitee": map[string]any{
-				"configured": isConfigured(model.OAuthProviderGitee),
+				"configured": isConfigured("gitee"),
 			},
 			"icloud": map[string]any{
-				"configured": isConfigured(model.OAuthProviderICloud),
+				"configured": isConfigured("icloud"),
 			},
 			"google": map[string]any{
-				"configured": isConfigured(model.OAuthProviderGoogle),
+				"configured": isConfigured("google"),
 			},
 			"wechat": map[string]any{
-				"configured": isConfigured(model.OAuthProviderWechat),
+				"configured": isConfigured("wechat"),
 			},
 		},
 	}, nil
@@ -378,13 +374,14 @@ func (h *handler) OAuthAuthorize(ctx context.Context, req *v1.OAuthAuthorizeRequ
 	if req.Provider == "" {
 		return &v1.OAuthAuthorizeResponse{}, errors.New("Provider is required")
 	}
-	c := contextx.Request(ctx)
-	if req.RedirectURI == "" {
-		req.RedirectURI = c.Header.Get("Origin") + "/auth/callback"
-	}
-
+	// redirect_uri is controlled by config file, no code concatenation
+	// State is auto-generated if empty
 	if req.State == "" {
-		req.State = "state_" + time.Now().Format("20060102150405")
+		stateBytes := make([]byte, 32)
+		if _, err := rand.Read(stateBytes); err != nil {
+			return nil, errors.New("failed to generate secure state")
+		}
+		req.State = hex.EncodeToString(stateBytes)
 	}
 
 	authorizeURL, err := h.biz.OAuth().GetAuthorizeURL(ctx, model.OAuthProvider(req.Provider), req.RedirectURI, req.State)

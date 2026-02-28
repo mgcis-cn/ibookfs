@@ -25,23 +25,47 @@ const route = useRoute()
 const error = ref<string | null>(null)
 
 onMounted(async () => {
-  const provider = route.query.provider as OAuthProvider
   const code = route.query.code as string
   const state = route.query.state as string
   const errorParam = route.query.error as string
   const errorDescription = route.query.error_description as string
 
-  // Handle OAuth errors
+  // Get provider from URL path (e.g., /auth/callback/github)
+  const provider = route.params.provider as OAuthProvider
+
+  // Handle OAuth errors from provider (e.g., rate limit, access denied)
   if (errorParam) {
-    error.value = errorDescription || errorParam
-    sendMessage({ type: 'oauth_error', provider, error: error.value })
+    // Map common error codes to user-friendly messages
+    const errorMessages: Record<string, string> = {
+      'access_denied': '授权被拒绝',
+      'rate_limit': '请求太频繁，请10分钟后再试',
+      'temporarily_unavailable': '服务暂时不可用，请稍后再试',
+      'server_error': '服务器错误，请稍后再试',
+    }
+    error.value = errorMessages[errorParam] || errorDescription || errorParam
+    
+    // Check for rate limit indicators
+    if (errorParam.includes('rate') || errorParam.includes('limit') || errorParam === '429') {
+      error.value = '请求太频繁，请等待10-30分钟后再试'
+    }
+    
+    if (provider) {
+      sendMessage({ type: 'oauth_error', provider, error: error.value })
+    }
+    setTimeout(() => window.close(), 5000)
+    return
+  }
+
+  // Check provider first - if missing, likely a stale/invalid callback
+  if (!provider) {
+    error.value = '授权已过期，请重新点击登录按钮'
     setTimeout(() => window.close(), 3000)
     return
   }
 
-  // Validate required parameters
-  if (!provider || !code || !state) {
-    error.value = 'Missing required OAuth parameters'
+  // Validate required parameters from OAuth provider
+  if (!code || !state) {
+    error.value = '授权失败：缺少必要参数'
     sendMessage({ type: 'oauth_error', provider, error: error.value })
     setTimeout(() => window.close(), 3000)
     return
@@ -55,10 +79,8 @@ onMounted(async () => {
     state,
   })
 
-  // Wait a bit before closing to ensure message is sent
-  setTimeout(() => {
-    window.close()
-  }, 1000)
+  // Close popup after sending message
+  setTimeout(() => window.close(), 500)
 })
 
 /**
