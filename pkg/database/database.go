@@ -101,6 +101,10 @@ type Factory struct {
 	items map[string]Database
 }
 
+func WithNameFunc(opts *options.DatabaseOptions) string {
+	return opts.Name
+}
+
 func NewFactory(ctx context.Context, configs []*options.DatabaseOptions, nameFunc func(dataOptions *options.DatabaseOptions) string) (*Factory, error) {
 	f := &Factory{items: make(map[string]Database)}
 	for _, c := range configs {

@@ -53,23 +53,17 @@ func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
 	logger := bootstrap.NewLogger(appInfo)
 	appConfig := bootstrap.AppConfig{Info: appInfo, Logger: logger}
 
-	databaseF, err := database.NewFactory(ctx, opts.Data.Database, func(opt *options.DatabaseOptions) string {
-		return opt.Name
-	})
+	databaseF, err := database.NewFactory(ctx, opts.Data.Database, database.WithNameFunc)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	storageF, err := storage.NewFactory(opts.Data.Storage, func(opts *options.StorageOptions) string {
-		return opts.Name
-	})
+	storageF, err := storage.NewFactory(opts.Data.Storage, storage.WithNameFunc)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	emailF, err := email.NewFactory(opts.Email, func(opts *options.EmailOptions) string {
-		return opts.Name
-	})
+	emailF, err := email.NewFactory(opts.Email, email.WithNameFunc)
 	if err != nil {
 		return nil, nil, err
 	}

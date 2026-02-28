@@ -12,6 +12,10 @@ type Factory struct {
 	items map[string]sources.Email
 }
 
+func WithNameFunc(opts *options.EmailOptions) string {
+	return opts.Name
+}
+
 // NewFactory creates a Factory from email options.
 func NewFactory(configs []*options.EmailOptions, nameFunc func(*options.EmailOptions) string) (*Factory, error) {
 	f := &Factory{items: make(map[string]sources.Email)}

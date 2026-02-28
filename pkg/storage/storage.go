@@ -12,6 +12,10 @@ type Factory struct {
 	items map[string]sources.Storage
 }
 
+func WithNameFunc(opts *options.StorageOptions) string {
+	return opts.Name
+}
+
 // NewFactory creates a Factory from storage options.
 func NewFactory(configs []*options.StorageOptions, nameFunc func(*options.StorageOptions) string) (*Factory, error) {
 	f := &Factory{items: make(map[string]sources.Storage)}
