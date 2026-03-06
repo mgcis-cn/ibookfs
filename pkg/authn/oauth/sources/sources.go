@@ -3,7 +3,6 @@ package sources
 import (
 	"context"
 	"fmt"
-	"log"
 )
 
 // Config is the interface that OAuth configuration structs must implement.
@@ -20,7 +19,6 @@ func Register(kind string, factory Factory) bool {
 		return false
 	}
 	registry[kind] = factory
-	log.Printf("Registered oauth source: %s", kind)
 	return true
 }
 

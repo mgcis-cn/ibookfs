@@ -4,8 +4,9 @@ import (
 	"os"
 
 	"github.com/go-kratos/kratos/v2"
-	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/transport"
+
+	"github.com/mgcis-cn/ibookfs/pkg/log"
 )
 
 type AppInfo struct {
@@ -25,6 +26,7 @@ func NewAppInfo(id, name, version string) AppInfo {
 	}
 }
 
+// AppConfig holds application configuration.
 type AppConfig struct {
 	Info   AppInfo
 	Logger log.Logger

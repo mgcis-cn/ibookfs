@@ -3,7 +3,6 @@ package sources
 import (
 	"context"
 	"fmt"
-	"log"
 )
 
 type Kind string
@@ -22,7 +21,6 @@ func Register(kind Kind, factory Factory) bool {
 		return false
 	}
 	registry[kind] = factory
-	log.Printf("Registered email source: %s", kind)
 	return true
 }
 

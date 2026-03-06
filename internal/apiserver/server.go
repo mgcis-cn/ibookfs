@@ -49,8 +49,7 @@ func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
 
 	// App info
 	appInfo := bootstrap.NewAppInfo(ID, opts.App.Name, opts.App.Version)
-	logger := bootstrap.NewLogger(appInfo)
-	appConfig := bootstrap.AppConfig{Info: appInfo, Logger: logger}
+	appLogger := bootstrap.NewLogger(appInfo)
 
 	databaseF, err := database.NewFactory(ctx, opts.Data.Database, database.WithNameFunc)
 	if err != nil {
@@ -74,7 +73,7 @@ func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
 
 	// Image processor
 	imgProcessor := newImageProcessor(opts)
-	imageWorker := worker.NewImageWorker(nil, worker.DefaultConfig())
+	imageWorker := worker.NewImageWorker(nil, worker.DefaultConfig(), appLogger)
 	db, err := databaseF.MustGet("default")
 	if err != nil {
 		return nil, nil, err
@@ -112,8 +111,10 @@ func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
 			jwt.WithExpired(opts.Auth.JWT.Expired.Duration),
 		),
 		AccountSecretService: b.AccountSecret(),
+		Logger:               appLogger,
 	})
 	httpSrv := server.NewHTTPServer()
+	appConfig := bootstrap.AppConfig{Info: appInfo, Logger: appLogger}
 	app = bootstrap.NewApp(appConfig, transport.Server(httpSrv))
 
 	cleanup = func() {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
 
 	"github.com/mgcis-cn/ibookfs/cmd/apiserver/app/options"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
@@ -94,7 +93,6 @@ func AutoMigrate(db Database) error {
 			return err
 		}
 	}
-	log.Println("DatabaseOptions migration completed")
 	return nil
 }
 
@@ -154,6 +152,5 @@ func NewWith(ctx context.Context, cfg sources.Config) (Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("DatabaseOptions connected: %s", source.Kind())
 	return New(db), nil
 }

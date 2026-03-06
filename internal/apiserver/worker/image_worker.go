@@ -4,9 +4,10 @@ package worker
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
+
+	"github.com/mgcis-cn/ibookfs/pkg/log"
 )
 
 // ImageWorker processes images asynchronously using a worker pool pattern.
@@ -19,6 +20,7 @@ type ImageWorker struct {
 	stopChan chan struct{}
 	mu       sync.Mutex
 	running  bool
+	logger   log.Logger
 }
 
 // Processor defines the interface for processing images.
@@ -53,12 +55,16 @@ func DefaultConfig() Config {
 }
 
 // NewImageWorker creates a new image processing worker.
-func NewImageWorker(svc Processor, cfg Config) *ImageWorker {
+func NewImageWorker(svc Processor, cfg Config, logger log.Logger) *ImageWorker {
+	if logger == nil {
+		logger = log.NopLogger{}
+	}
 	return &ImageWorker{
 		queue:    make(chan uint, cfg.QueueSize),
 		service:  svc,
 		workers:  cfg.Concurrent,
 		stopChan: make(chan struct{}),
+		logger:   logger,
 	}
 }
 
@@ -115,7 +121,7 @@ func (w *ImageWorker) Start() {
 		go w.worker(ctx, i)
 	}
 
-	log.Printf("Image worker started with %d workers", w.workers)
+	w.logger.Info("image_worker_started", "workers", w.workers)
 }
 
 // Stop gracefully shuts down the worker.
@@ -127,7 +133,7 @@ func (w *ImageWorker) Stop() {
 		return
 	}
 
-	log.Println("Stopping image worker...")
+	w.logger.Info("image_worker_stopping")
 
 	// Cancel context
 	if w.cancel != nil {
@@ -146,7 +152,7 @@ func (w *ImageWorker) Stop() {
 	}
 
 	w.running = false
-	log.Println("Image worker stopped")
+	w.logger.Info("image_worker_stopped")
 }
 
 // IsRunning returns whether the worker is currently running.
@@ -160,21 +166,21 @@ func (w *ImageWorker) IsRunning() bool {
 func (w *ImageWorker) worker(ctx context.Context, id int) {
 	defer w.wg.Done()
 
-	log.Printf("Worker %d started", id)
+	w.logger.Debug("worker_started", "worker_id", id)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("Worker %d received stop signal", id)
+			w.logger.Debug("worker_stop_signal", "worker_id", id)
 			return
 
 		case <-w.stopChan:
-			log.Printf("Worker %d stopping via stop channel", id)
+			w.logger.Debug("worker_stop_channel", "worker_id", id)
 			return
 
 		case imageID, ok := <-w.queue:
 			if !ok {
-				log.Printf("Worker %d: queue closed, exiting", id)
+				w.logger.Debug("worker_queue_closed", "worker_id", id)
 				return
 			}
 
@@ -191,7 +197,7 @@ func (w *ImageWorker) processImage(ctx context.Context, imageID uint, workerID i
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
 			// Wait before retry
-			log.Printf("Worker %d: retrying image %d (attempt %d/%d)", workerID, imageID, attempt+1, maxRetries)
+			w.logger.Info("image_retry", "worker_id", workerID, "image_id", imageID, "attempt", attempt+1, "max_retries", maxRetries)
 			select {
 			case <-time.After(60 * time.Second):
 			case <-ctx.Done():
@@ -199,20 +205,20 @@ func (w *ImageWorker) processImage(ctx context.Context, imageID uint, workerID i
 			}
 		}
 
-		log.Printf("Worker %d: processing image %d", workerID, imageID)
+		w.logger.Debug("image_processing", "worker_id", workerID, "image_id", imageID)
 
 		if err := w.service.ProcessImage(ctx, imageID); err != nil {
 			lastErr = err
-			log.Printf("Worker %d: failed to process image %d: %v", workerID, imageID, err)
+			w.logger.Error("image_process_failed", "worker_id", workerID, "image_id", imageID, "error", err)
 			continue
 		}
 
-		log.Printf("Worker %d: successfully processed image %d", workerID, imageID)
+		w.logger.Info("image_processed", "worker_id", workerID, "image_id", imageID)
 		return
 	}
 
 	// All retries exhausted
-	log.Printf("Worker %d: gave up on image %d after %d attempts: %v", workerID, imageID, maxRetries, lastErr)
+	w.logger.Error("image_process_exhausted", "worker_id", workerID, "image_id", imageID, "attempts", maxRetries, "error", lastErr)
 }
 
 // QueueSize returns the current queue size.
