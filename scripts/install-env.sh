@@ -4,7 +4,7 @@
 # iBookFS 环境安装脚本
 #
 # 功能：自动安装项目所需的环境依赖
-# 支持 Ubuntu/Debian 和 CentOS/RHEL 系统
+# 支持 Ubuntu/Debian、CentOS/RHEL 和 macOS 系统
 ################################################################################
 
 set -e
@@ -35,7 +35,10 @@ log_error() {
 
 # 检测操作系统
 detect_os() {
-    if [ -f /etc/os-release ]; then
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        OS_ID="macos"
+        OS_VERSION=$(sw_vers -productVersion)
+    elif [ -f /etc/os-release ]; then
         . /etc/os-release
         OS_ID=$ID
         OS_VERSION=$VERSION_ID
@@ -47,8 +50,12 @@ detect_os() {
     log_info "检测到操作系统: $OS_ID $OS_VERSION"
 }
 
-# 检查是否为 root 用户
+# 检查是否为 root 用户（macOS 不强制要求）
 check_root() {
+    if [ "$OS_ID" = "macos" ]; then
+        log_info "macOS 系统，使用 Homebrew 安装（无需 root）"
+        return
+    fi
     if [ "$EUID" -ne 0 ]; then
         log_error "此脚本需要 root 权限运行"
         echo "请使用: sudo $0"
@@ -61,6 +68,13 @@ update_package_manager() {
     log_info "更新包管理器索引..."
 
     case $OS_ID in
+        macos)
+            if ! command -v brew &> /dev/null; then
+                log_info "安装 Homebrew..."
+                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            fi
+            brew update
+            ;;
         ubuntu|debian)
             export DEBIAN_FRONTEND=noninteractive
             apt-get update -qq
@@ -78,6 +92,9 @@ install_base_tools() {
     log_info "安装基础工具..."
 
     case $OS_ID in
+        macos)
+            brew install curl wget git
+            ;;
         ubuntu|debian)
             apt-get install -y -qq curl wget git tar gzip build-essential
             ;;
@@ -98,31 +115,38 @@ install_go() {
 
     log_info "安装 Go..."
 
-    local go_version="1.25.6"
-    local go_arch="amd64"
+    case $OS_ID in
+        macos)
+            brew install go
+            ;;
+        *)
+            local go_version="1.25.6"
+            local go_arch="amd64"
 
-    # 下载 Go
-    cd /tmp
-    curl -sLO "https://go.dev/dl/go${go_version}.linux-${go_arch}.tar.gz"
+            # 下载 Go
+            cd /tmp
+            curl -sLO "https://go.dev/dl/go${go_version}.linux-${go_arch}.tar.gz"
 
-    # 解压并安装
-    tar -C /usr/local -xzf "go${go_version}.linux-${go_arch}.tar.gz"
-    rm -f "go${go_version}.linux-${go_arch}.tar.gz"
+            # 解压并安装
+            tar -C /usr/local -xzf "go${go_version}.linux-${go_arch}.tar.gz"
+            rm -f "go${go_version}.linux-${go_arch}.tar.gz"
 
-    # 设置环境变量
-    cat <<'EOF' > /etc/profile.d/go.sh
+            # 设置环境变量
+            cat <<'EOF' > /etc/profile.d/go.sh
 export PATH=$PATH:/usr/local/go/bin
 export GOPATH=$HOME/go
 export GO111MODULE=on
 export GOPROXY=https://goproxy.cn,direct
 EOF
 
-    # 立即生效
-    export PATH=$PATH:/usr/local/go/bin
-    export GOPATH=$HOME/go
+            # 立即生效
+            export PATH=$PATH:/usr/local/go/bin
+            export GOPATH=$HOME/go
+            ;;
+    esac
 
     # 验证安装
-    if /usr/local/go/bin/go version; then
+    if command -v go &> /dev/null; then
         log_success "Go 安装完成 ($(go version))"
     else
         log_error "Go 安装失败"
@@ -139,8 +163,10 @@ install_nodejs() {
 
     log_info "安装 Node.js..."
 
-    # 使用 NodeSource 仓库安装 Node.js 20.x LTS
     case $OS_ID in
+        macos)
+            brew install node
+            ;;
         ubuntu|debian)
             # 安装必要的工具
             apt-get install -y -qq ca-certificates curl gnupg
@@ -177,7 +203,7 @@ EOF
 
     # 验证安装
     if command -v node &> /dev/null && command -v npm &> /dev/null; then
-        log_success "Node.js 安装完成 ($(node -v), npm ($(npm -v))"
+        log_success "Node.js 安装完成 ($(node -v), npm $(npm -v))"
     else
         log_error "Node.js 安装失败"
         exit 1
@@ -199,12 +225,52 @@ configure_git() {
     log_success "Git 配置完成"
 }
 
+# 安装 Nginx
+install_nginx() {
+    if command -v nginx &> /dev/null; then
+        log_success "Nginx 已安装，跳过"
+        return
+    fi
+
+    log_info "安装 Nginx..."
+
+    case $OS_ID in
+        macos)
+            brew install nginx
+            ;;
+        ubuntu|debian)
+            apt-get install -y -qq nginx
+            ;;
+        centos|rhel|fedora)
+            yum install -y nginx
+            ;;
+    esac
+
+    # 验证安装
+    if command -v nginx &> /dev/null; then
+        log_success "Nginx 安装完成 ($(nginx -v 2>&1))"
+    else
+        log_error "Nginx 安装失败"
+        exit 1
+    fi
+}
+
 # 创建必要的目录
 create_directories() {
     log_info "创建必要的目录..."
 
-    mkdir -p /opt/ibookfs
-    mkdir -p /var/log/ibookfs
+    case $OS_ID in
+        macos)
+            mkdir -p /usr/local/var/ibookfs
+            mkdir -p /usr/local/var/log/ibookfs
+            mkdir -p /usr/local/var/www/ibookfs
+            ;;
+        *)
+            mkdir -p /opt/ibookfs
+            mkdir -p /var/log/ibookfs
+            mkdir -p /var/www/ibookfs
+            ;;
+    esac
 
     log_success "目录创建完成"
 }
@@ -244,6 +310,7 @@ EOF
 # 解析命令行参数
 SKIP_GO=false
 SKIP_NODEJS=false
+SKIP_NGINX=false
 SKIP_GIT=false
 SKIP_TOOLS=false
 SKIP_DIRS=false
@@ -313,6 +380,11 @@ main() {
     # 安装 Node.js
     if [ "$SKIP_NODEJS" = false ]; then
         install_nodejs
+    fi
+
+    # 安装 Nginx
+    if [ "$SKIP_NGINX" = false ]; then
+        install_nginx
     fi
 
     # 配置 Git
