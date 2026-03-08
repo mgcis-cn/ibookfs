@@ -28,7 +28,13 @@ go.work.sum
 # env file
 .env
 *.yaml
+!.env.example
 ibookfs.db
+
+# Build output
+bin/
+web/dist/
+web/node_modules/
 
 # Editor/IDE
 .idea/

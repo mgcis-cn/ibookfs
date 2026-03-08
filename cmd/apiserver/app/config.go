@@ -3,7 +3,6 @@
 package app
 
 import (
-	"flag"
 	"os"
 	"path/filepath"
 
@@ -17,12 +16,9 @@ var (
 	flagEnv     string
 )
 
-func init() {
-	flag.StringVar(&flagConfDir, "conf", "configs", "config directory path")
-}
-
 // AddConfigFlags registers config-related flags on the given pflag.FlagSet.
 func AddConfigFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&flagConfDir, "conf", "configs", "config directory path")
 	fs.StringVar(&flagEnv, "env", "", "runtime environment (e.g. dev, test, prod)")
 }
 

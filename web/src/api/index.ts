@@ -20,7 +20,7 @@ import type {
 import { mockPhotos, mockSettings, delay, getPhotosByBookId } from './mockData'
 
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
 
 /**

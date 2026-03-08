@@ -61,6 +61,10 @@ application-{env}.yaml on top of the base application.yaml.`,
 	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
 	fs.SetNormalizeFunc(normalizeFunc)
 	flag.SetUsageAndHelpFunc(cmd, fss, cols)
+
+	// Add subcommands
+	cmd.AddCommand(NewMigrateCommand())
+
 	return cmd
 }
 

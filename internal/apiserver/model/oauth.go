@@ -21,7 +21,7 @@ type OAuthIdentity struct {
 	Scope          *string    `json:"scope,omitempty" gorm:"size:500;comment:OAuth授权范围"`
 
 	// Profile data from provider
-	ProfileData *string `json:"-" gorm:"type:longtext;comment:第三方平台用户资料（JSON）"`
+	ProfileData *string `json:"-" gorm:"type:text;comment:第三方平台用户资料（JSON）"`
 
 	// Link status
 	IsPrimary  bool       `json:"is_primary" gorm:"default:false;index:idx_oauth_is_primary;comment:是否为主账号"`

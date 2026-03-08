@@ -19,7 +19,7 @@ type User struct {
 	Role   UserRole   `json:"role" gorm:"size:20;default:'user';comment:角色"`
 
 	// Settings
-	Preferences *string `json:"preferences,omitempty" gorm:"type:longtext;comment:用户偏好设置（JSON）"`
+	Preferences *string `json:"preferences,omitempty" gorm:"type:text;comment:用户偏好设置（JSON）"`
 	Language    string  `json:"language" gorm:"size:10;default:'zh-CN';comment:语言设置"`
 	Timezone    string  `json:"timezone" gorm:"size:50;default:'Asia/Shanghai';comment:时区"`
 
