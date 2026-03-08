@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
 	"github.com/mgcis-cn/ibookfs/pkg/email/sources"
 )
 
@@ -36,7 +37,7 @@ func (s *emailBiz) IsEmailEnabled() bool {
 // SendVerificationCode sends a verification code email.
 func (s *emailBiz) SendVerificationCode(to, code string, codeType string) error {
 	if !s.IsEmailEnabled() {
-		return fmt.Errorf("email is disabled")
+		return apierr.ErrEmailDisabled
 	}
 	subject := s.getSubject(codeType)
 	body := s.getEmailBody(code, codeType)

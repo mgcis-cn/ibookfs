@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -13,8 +12,10 @@ import (
 	"strings"
 
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/processor"
+	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/store"
+	pkgerr "github.com/mgcis-cn/ibookfs/pkg/errors"
 	ssources "github.com/mgcis-cn/ibookfs/pkg/storage/sources"
 )
 
@@ -86,7 +87,7 @@ type UploadResponse struct {
 func (s *imageBiz) Upload(ctx context.Context, req *UploadRequest) (*UploadResponse, error) {
 	// Validate file extension
 	if err := processor.ValidateFileExtension(req.FileName); err != nil {
-		return nil, fmt.Errorf("invalid file: %w", err)
+		return nil, err
 	}
 
 	// Get MIME type from extension if not provided
@@ -99,20 +100,20 @@ func (s *imageBiz) Upload(ctx context.Context, req *UploadRequest) (*UploadRespo
 	// First, read all content for validation
 	content, err := io.ReadAll(req.Reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
+		return nil, pkgerr.Wrap(err, "读取文件失败")
 	}
 
 	// Validate image
 	info, err := s.processor.Validate(ctx, strings.NewReader(string(content)), mimeType, req.FileSize)
 	if err != nil {
-		return nil, fmt.Errorf("validation failed: %w", err)
+		return nil, err
 	}
 
 	// Generate random filename
 	ext := filepath.Ext(req.FileName)
 	randomFilename, err := generateRandomFilename(ext)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate filename: %w", err)
+		return nil, pkgerr.Wrap(err, "生成文件名失败")
 	}
 
 	// Generate storage path (code plans the structure)
@@ -122,13 +123,13 @@ func (s *imageBiz) Upload(ctx context.Context, req *UploadRequest) (*UploadRespo
 	fullPath := s.getStorageBasePath()
 	destPath := filepath.Join(fullPath, storagePath)
 	if err := s.processor.SaveOriginal(strings.NewReader(string(content)), destPath); err != nil {
-		return nil, fmt.Errorf("failed to save image: %w", err)
+		return nil, apierr.ImageUploadFailed(err)
 	}
 
 	// Generate access token
 	accessToken, err := generateAccessToken()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate access token: %w", err)
+		return nil, pkgerr.Wrap(err, "生成访问令牌失败")
 	}
 
 	// Create image record
@@ -149,7 +150,7 @@ func (s *imageBiz) Upload(ctx context.Context, req *UploadRequest) (*UploadRespo
 	if err := s.repo.Image().Create(ctx, image); err != nil {
 		// Cleanup file on database error
 		_ = s.storage.Delete(ctx, storagePath)
-		return nil, fmt.Errorf("failed to create image record: %w", err)
+		return nil, pkgerr.Wrap(err, "创建图片记录失败")
 	}
 
 	// Enqueue for async processing
@@ -184,7 +185,7 @@ func (s *imageBiz) GetByID(ctx context.Context, id uint, ownerID uint) (*model.I
 
 	// Check ownership
 	if image.OwnerID != ownerID {
-		return nil, errors.New("access denied")
+		return nil, apierr.ErrImageAccessDenied
 	}
 
 	return image, nil
@@ -210,7 +211,7 @@ func (s *imageBiz) Delete(ctx context.Context, id uint, ownerID uint) error {
 
 	// Check ownership
 	if image.OwnerID != ownerID {
-		return errors.New("access denied")
+		return apierr.ErrImageAccessDenied
 	}
 
 	// Delete variants from storage
@@ -233,7 +234,7 @@ func (s *imageBiz) Delete(ctx context.Context, id uint, ownerID uint) error {
 func (s *imageBiz) ProcessImage(ctx context.Context, imageID uint) error {
 	image, err := s.repo.Image().GetByID(ctx, imageID)
 	if err != nil {
-		return fmt.Errorf("failed to get image: %w", err)
+		return pkgerr.Wrap(err, "获取图片失败")
 	}
 
 	// Get full path for processing
@@ -246,7 +247,7 @@ func (s *imageBiz) ProcessImage(ctx context.Context, imageID uint) error {
 		// Update status to failed
 		image.Status = model.ImageStatusFailed
 		_ = s.repo.Image().Update(ctx, image)
-		return fmt.Errorf("processing failed: %w", err)
+		return pkgerr.Wrap(err, "图片处理失败")
 	}
 
 	// Update image with blurhash
@@ -297,7 +298,7 @@ func (s *imageBiz) DownloadFile(ctx context.Context, image *model.Image, variant
 
 	reader, err := s.storage.Download(ctx, filePath)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to download file: %w", err)
+		return nil, "", apierr.ImageDownloadFailed(err)
 	}
 
 	return reader, image.MimeType, nil

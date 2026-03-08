@@ -5,9 +5,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/auth"
+	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
 	v1 "github.com/mgcis-cn/ibookfs/pkg/api/apiserver/v1"
 	contextx "github.com/mgcis-cn/ibookfs/pkg/context"
@@ -45,7 +45,7 @@ func (h *handler) SendCode(ctx context.Context, req *v1.SendCodeRequest) (*v1.Se
 		"bind_email":     true,
 	}
 	if !validTypes[req.Type] {
-		return &v1.SendCodeResponse{}, errors.New("Invalid code type")
+		return &v1.SendCodeResponse{}, apierr.ErrInvalidCodeType
 	}
 
 	// Convert v1 request to biz request
@@ -372,14 +372,14 @@ func (h *handler) GetConfig(ctx context.Context, req *v1.GetConfigRequest) (*v1.
 func (h *handler) OAuthAuthorize(ctx context.Context, req *v1.OAuthAuthorizeRequest) (*v1.OAuthAuthorizeResponse, error) {
 
 	if req.Provider == "" {
-		return &v1.OAuthAuthorizeResponse{}, errors.New("Provider is required")
+		return &v1.OAuthAuthorizeResponse{}, apierr.ErrProviderRequired
 	}
 	// redirect_uri is controlled by config file, no code concatenation
 	// State is auto-generated if empty
 	if req.State == "" {
 		stateBytes := make([]byte, 32)
 		if _, err := rand.Read(stateBytes); err != nil {
-			return nil, errors.New("failed to generate secure state")
+			return &v1.OAuthAuthorizeResponse{}, apierr.ErrStateGenFailed
 		}
 		req.State = hex.EncodeToString(stateBytes)
 	}

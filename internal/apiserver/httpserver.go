@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/handlers"
 
 	v1 "github.com/mgcis-cn/ibookfs/pkg/api/apiserver/v1"
+	pkgerr "github.com/mgcis-cn/ibookfs/pkg/errors"
 )
 
 // apiResponse wraps all successful responses for the frontend.
@@ -19,6 +20,7 @@ type apiResponse struct {
 // apiErrorResponse wraps all error responses for the frontend.
 type apiErrorResponse struct {
 	Success bool   `json:"success"`
+	Code    int    `json:"code,omitempty"`
 	Message string `json:"message"`
 }
 
@@ -31,13 +33,27 @@ func responseEncoder(w nethttp.ResponseWriter, r *nethttp.Request, v interface{}
 	})
 }
 
-// errorEncoder wraps handler errors with {success: false, message: ...}.
+// errorEncoder wraps handler errors with {success: false, code: ..., message: ...}.
+// It extracts the HTTP status and error code from pkgerr.Error if available;
+// otherwise falls back to 400 Bad Request.
 func errorEncoder(w nethttp.ResponseWriter, r *nethttp.Request, err error) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(nethttp.StatusBadRequest)
+
+	httpStatus := nethttp.StatusBadRequest
+	errCode := 0
+	message := err.Error()
+
+	if e := pkgerr.FromError(err); e != nil {
+		httpStatus = e.HTTPStatus()
+		errCode = e.Code()
+		message = e.Message()
+	}
+
+	w.WriteHeader(httpStatus)
 	json.NewEncoder(w).Encode(apiErrorResponse{
 		Success: false,
-		Message: err.Error(),
+		Code:    errCode,
+		Message: message,
 	})
 }
 

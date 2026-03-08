@@ -3,10 +3,10 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"io"
 
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/image"
+	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
 	v1 "github.com/mgcis-cn/ibookfs/pkg/api/apiserver/v1"
 	contextx "github.com/mgcis-cn/ibookfs/pkg/context"
@@ -26,7 +26,7 @@ type ImageRouter interface {
 func (h *handler) UploadImage(ctx context.Context, req *v1.UploadImageRequest) (*v1.UploadImageResponse, error) {
 	// Get file from form
 	if req.File == nil {
-		return &v1.UploadImageResponse{}, errors.New("file is required")
+		return &v1.UploadImageResponse{}, apierr.ErrImageFileRequired
 	}
 
 	request := contextx.Request(ctx)
@@ -69,7 +69,7 @@ func (h *handler) GetImage(ctx context.Context, req *v1.GetImageRequest) (*v1.Ge
 	userID := contextx.UserId(ctx)
 	img, err := h.biz.Image().GetByID(ctx, uint(req.Id), uint(userID))
 	if err != nil {
-		return &v1.GetImageResponse{}, errors.New("image not found")
+		return &v1.GetImageResponse{}, apierr.ErrImageNotFound
 	}
 
 	return &v1.GetImageResponse{
@@ -173,8 +173,7 @@ func (h *handler) ServeImage(ctx context.Context, req *v1.ServeImageRequest) (*v
 
 		// Verify ID matches
 		if img.ID != uint(req.Id) {
-			//c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
-			return &v1.ServeImageResponse{}, errors.New("access denied")
+			return &v1.ServeImageResponse{}, apierr.ErrImageAccessDenied
 		}
 		res = img
 	} else {

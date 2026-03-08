@@ -3,8 +3,8 @@ package handler
 
 import (
 	"context"
-	"errors"
 
+	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/store"
 	v1 "github.com/mgcis-cn/ibookfs/pkg/api/apiserver/v1"
@@ -54,7 +54,7 @@ func (h *handler) GetBook(ctx context.Context, req *v1.GetBookRequest) (*v1.GetB
 	userID := contextx.UserId(ctx)
 	book, err := h.biz.Book().GetByID(ctx, uint(req.Id), uint(userID))
 	if err != nil {
-		return &v1.GetBookResponse{}, errors.New("book not found")
+		return &v1.GetBookResponse{}, apierr.ErrBookNotFound
 	}
 
 	return &v1.GetBookResponse{

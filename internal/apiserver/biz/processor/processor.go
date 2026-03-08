@@ -4,8 +4,6 @@ package processor
 import (
 	"bytes"
 	"context"
-	"errors"
-	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -17,6 +15,9 @@ import (
 	blurhash "github.com/buckket/go-blurhash"
 	"github.com/disintegration/imaging"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
+	pkgerr "github.com/mgcis-cn/ibookfs/pkg/errors"
 )
 
 // Config holds processor configuration.
@@ -103,23 +104,23 @@ type VariantResult struct {
 func (p *Processor) Validate(ctx context.Context, reader io.Reader, mimeType string, size int64) (*ImageInfo, error) {
 	// Check file size
 	if maxSize := p.config.MaxFileSize.Value(); maxSize > 0 && size > maxSize {
-		return nil, fmt.Errorf("file size %d exceeds maximum %d", size, maxSize)
+		return nil, apierr.ImageSizeTooLarge(size, maxSize)
 	}
 
 	// Check MIME type
 	if !p.isAllowedType(mimeType) {
-		return nil, fmt.Errorf("MIME type %s is not allowed", mimeType)
+		return nil, apierr.ImageMIMENotAllowed(mimeType)
 	}
 
 	// Read image to decode dimensions
 	buf := new(bytes.Buffer)
 	if _, err := io.Copy(buf, reader); err != nil {
-		return nil, fmt.Errorf("failed to read image: %w", err)
+		return nil, pkgerr.Wrap(err, "读取图片失败")
 	}
 
 	img, format, err := image.Decode(bytes.NewReader(buf.Bytes()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode image: %w", err)
+		return nil, pkgerr.Wrap(err, "解码图片失败")
 	}
 
 	bounds := img.Bounds()
@@ -141,20 +142,20 @@ func (p *Processor) GenerateBlurHash(imgPath string) (string, error) {
 
 	file, err := os.Open(imgPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to open image: %w", err)
+		return "", pkgerr.Wrap(err, "打开图片失败")
 	}
 	defer file.Close()
 
 	img, _, err := image.Decode(file)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode image: %w", err)
+		return "", pkgerr.Wrap(err, "解码图片失败")
 	}
 
 	// BlurHash components: X components (horizontal detail), Y components (vertical detail)
 	// 4x3 is a good balance between size and quality
 	hash, err := blurhash.Encode(4, 3, img)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate blurhash: %w", err)
+		return "", pkgerr.Wrap(err, "生成BlurHash失败")
 	}
 
 	return hash, nil
@@ -164,7 +165,7 @@ func (p *Processor) GenerateBlurHash(imgPath string) (string, error) {
 func (p *Processor) GenerateVariants(ctx context.Context, sourcePath string, outputDir string) ([]VariantResult, error) {
 	sourceImg, err := imaging.Open(sourcePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open source image: %w", err)
+		return nil, pkgerr.Wrap(err, "打开源图片失败")
 	}
 
 	bounds := sourceImg.Bounds()
@@ -188,7 +189,7 @@ func (p *Processor) GenerateVariants(ctx context.Context, sourcePath string, out
 
 		// Ensure output directory exists
 		if err := os.MkdirAll(filepath.Dir(variantPath), 0755); err != nil {
-			return nil, fmt.Errorf("failed to create output directory: %w", err)
+			return nil, pkgerr.Wrap(err, "创建输出目录失败")
 		}
 
 		// Resize image
@@ -196,7 +197,7 @@ func (p *Processor) GenerateVariants(ctx context.Context, sourcePath string, out
 
 		// Save based on original format
 		if err := p.saveImage(resized, variantPath, ext); err != nil {
-			return nil, fmt.Errorf("failed to save variant %s: %w", variantCfg.Name, err)
+			return nil, pkgerr.Wrap(err, "保存变体"+variantCfg.Name+"失败")
 		}
 
 		// Get file size
@@ -219,13 +220,13 @@ func (p *Processor) Process(ctx context.Context, sourcePath string, outputDir st
 	// Generate BlurHash
 	blurhash, err := p.GenerateBlurHash(sourcePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate blurhash: %w", err)
+		return nil, pkgerr.Wrap(err, "生成BlurHash失败")
 	}
 
 	// Generate variants
 	variants, err := p.GenerateVariants(ctx, sourcePath, outputDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate variants: %w", err)
+		return nil, pkgerr.Wrap(err, "生成变体失败")
 	}
 
 	return &ProcessResult{
@@ -318,7 +319,7 @@ func ValidateFileExtension(filename string) error {
 	}
 
 	if !validExts[ext] {
-		return errors.New("invalid file extension")
+		return apierr.ErrImageInvalidExt
 	}
 	return nil
 }

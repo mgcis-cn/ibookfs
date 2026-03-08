@@ -3,16 +3,17 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/email"
+	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
 	model2 "github.com/mgcis-cn/ibookfs/internal/apiserver/model"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/store"
 	"github.com/mgcis-cn/ibookfs/internal/pkg/util"
 	"github.com/mgcis-cn/ibookfs/pkg/authn/jwt"
+	pkgerr "github.com/mgcis-cn/ibookfs/pkg/errors"
 )
 
 // AuthBiz defines the interface for authentication business logic.
@@ -86,11 +87,11 @@ func (s *authBiz) SendCode(ctx context.Context, req SendCodeRequest) error {
 	// Check rate limiting
 	recentCount, err := userStore.CountRecentCodes(ctx, req.Email, time.Now().Add(-60*time.Second))
 	if err != nil {
-		return fmt.Errorf("failed to check rate limit: %w", err)
+		return pkgerr.Wrap(err, "检查频率限制失败")
 	}
 
 	if recentCount > 0 {
-		return errors.New("请等待60秒后重新发送")
+		return apierr.ErrRateLimited
 	}
 
 	// Generate verification code based on email configuration
@@ -115,7 +116,7 @@ func (s *authBiz) SendCode(ctx context.Context, req SendCodeRequest) error {
 	}
 
 	if err := userStore.CreateVerificationCode(ctx, verificationCode); err != nil {
-		return fmt.Errorf("failed to store verification code: %w", err)
+		return pkgerr.Wrap(err, "存储验证码失败")
 	}
 
 	// Send email with verification code
@@ -124,7 +125,7 @@ func (s *authBiz) SendCode(ctx context.Context, req SendCodeRequest) error {
 		if err := s.emailBiz.SendVerificationCode(req.Email, code, req.Type); err != nil {
 			// Delete the verification code since email failed
 			_ = userStore.DeleteVerificationCode(ctx, verificationCode)
-			return fmt.Errorf("failed to send email: %w", err)
+			return pkgerr.Wrap(err, "发送邮件失败")
 		}
 	} else {
 		// Email not configured - log only
@@ -141,14 +142,14 @@ func (s *authBiz) Login(ctx context.Context, req LoginRequest, ipAddress, userAg
 	// Find valid verification code
 	code, err := userStore.GetLatestVerificationCode(ctx, req.Email, model2.CodeTypeLogin)
 	if err != nil {
-		return nil, errors.New("验证码无效或已过期")
+		return nil, apierr.ErrCodeInvalid
 	}
 
 	// Verify code
 	if code.Code != req.Code {
 		code.Attempts++
 		_ = userStore.UpdateVerificationCode(ctx, code)
-		return nil, errors.New("验证码错误")
+		return nil, apierr.ErrCodeWrong
 	}
 
 	// Mark code as used
@@ -158,18 +159,18 @@ func (s *authBiz) Login(ctx context.Context, req LoginRequest, ipAddress, userAg
 	// Find user
 	user, err := userStore.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, errors.New("用户不存在，请先注册")
+		return nil, apierr.ErrUserNotFound
 	}
 
 	// Check user status
 	if user.Status != model2.UserStatusActive {
-		return nil, errors.New("账号已被禁用")
+		return nil, apierr.ErrUserDisabled
 	}
 
 	// Generate tokens
 	tokenPair, err := s.jwtManager.Sign(fmt.Sprintf("%d", user.ID), user.Email, string(user.Role))
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+		return nil, pkgerr.Wrap(err, "生成令牌失败")
 	}
 
 	// Update last login
@@ -203,19 +204,19 @@ func (s *authBiz) Register(ctx context.Context, req RegisterRequest, ipAddress, 
 	// Check if email already exists
 	_, err := userStore.GetUserByEmail(ctx, req.Email)
 	if err == nil {
-		return nil, errors.New("该邮箱已被注册")
+		return nil, apierr.ErrEmailExists
 	}
 
 	// Verify code
 	code, err := userStore.GetLatestVerificationCode(ctx, req.Email, model2.CodeTypeRegister)
 	if err != nil {
-		return nil, errors.New("验证码无效或已过期")
+		return nil, apierr.ErrCodeInvalid
 	}
 
 	if code.Code != req.Code {
 		code.Attempts++
 		_ = userStore.UpdateVerificationCode(ctx, code)
-		return nil, errors.New("验证码错误")
+		return nil, apierr.ErrCodeWrong
 	}
 
 	// Mark code as used
@@ -236,13 +237,13 @@ func (s *authBiz) Register(ctx context.Context, req RegisterRequest, ipAddress, 
 	}
 
 	if err := userStore.CreateUser(ctx, user); err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
+		return nil, pkgerr.Wrap(err, "创建用户失败")
 	}
 
 	// Generate tokens
 	tokenPair, err := s.jwtManager.Sign(fmt.Sprintf("%d", user.ID), user.Email, string(user.Role))
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+		return nil, pkgerr.Wrap(err, "生成令牌失败")
 	}
 
 	// Log login history
@@ -271,28 +272,28 @@ func (s *authBiz) RefreshToken(ctx context.Context, refreshToken string) (*jwt.T
 
 	claims, err := s.jwtManager.ParseClaims(ctx, refreshToken)
 	if err != nil {
-		return nil, errors.New("invalid refresh token")
+		return nil, apierr.ErrInvalidToken
 	}
 
 	// Verify user still exists and is active
 	userID, err := strconv.ParseUint(claims.UserID, 10, 64)
 	if err != nil {
-		return nil, errors.New("invalid user ID in token")
+		return nil, apierr.ErrInvalidUserID
 	}
 
 	user, err := userStore.GetUserByID(ctx, uint(userID))
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, apierr.ErrUserNotFound
 	}
 
 	if user.Status != model2.UserStatusActive {
-		return nil, errors.New("user not found or inactive")
+		return nil, apierr.ErrUserDisabled
 	}
 
 	// Generate new tokens
 	tokenPair, err := s.jwtManager.Sign(fmt.Sprintf("%d", user.ID), user.Email, string(user.Role))
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+		return nil, pkgerr.Wrap(err, "生成令牌失败")
 	}
 
 	return tokenPair, nil
@@ -325,19 +326,19 @@ func (s *authBiz) BindEmail(ctx context.Context, userID uint, email, code string
 		return err
 	}
 	if count > 0 {
-		return errors.New("该邮箱已被其他账号使用")
+		return apierr.ErrEmailInUse
 	}
 
 	// Verify code
 	verificationCode, err := userStore.GetLatestVerificationCode(ctx, email, model2.CodeTypeBindEmail)
 	if err != nil {
-		return errors.New("验证码无效或已过期")
+		return apierr.ErrCodeInvalid
 	}
 
 	if verificationCode.Code != code {
 		verificationCode.Attempts++
 		_ = userStore.UpdateVerificationCode(ctx, verificationCode)
-		return errors.New("验证码错误")
+		return apierr.ErrCodeWrong
 	}
 
 	// Mark code as used
@@ -386,7 +387,7 @@ func (s *authBiz) UnlinkOAuth(ctx context.Context, userID uint, provider string,
 	oauthCount, _ := userStore.CountOAuthIdentities(ctx, userID)
 
 	if emailLoginCount == 0 && oauthCount <= 1 {
-		return errors.New("无法解绑最后一个登录方式")
+		return apierr.ErrCannotUnlinkLast
 	}
 
 	// Unlink the OAuth account
@@ -411,7 +412,7 @@ func (s *authBiz) ValidateAccessToken(ctx context.Context, tokenString string) (
 	tokenHash := util.HashToken(tokenString)
 	_, err = userStore.GetValidSession(ctx, tokenHash)
 	if err != nil {
-		return 0, errors.New("session not found or expired")
+		return 0, apierr.ErrSessionExpired
 	}
 
 	userId, err := strconv.ParseUint(claims.UserID, 10, 64)

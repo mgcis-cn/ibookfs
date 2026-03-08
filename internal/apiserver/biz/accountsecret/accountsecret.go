@@ -5,12 +5,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
-	"fmt"
 	"time"
 
+	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/store"
+	pkgerr "github.com/mgcis-cn/ibookfs/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -66,7 +66,7 @@ func (s *accountSecretBiz) Create(ctx context.Context, ownerID uint, req *Create
 	// Validate scope
 	if req.Scope == model.AccountSecretScopeResource {
 		if req.ResourceID == nil || req.ResourceType == nil {
-			return nil, errors.New("resource_id and resource_type are required for resource-level secrets")
+			return nil, apierr.ErrAccountResourceRequired
 		}
 	}
 
@@ -78,19 +78,19 @@ func (s *accountSecretBiz) Create(ctx context.Context, ownerID uint, req *Create
 	// Generate account key (public identifier)
 	accountKey, err := generateAccountKey()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate account key: %w", err)
+		return nil, pkgerr.Wrap(err, "生成账户密钥失败")
 	}
 
 	// Generate secret key (private)
 	plainSecretKey, err := generateSecretKey()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate secret key: %w", err)
+		return nil, pkgerr.Wrap(err, "生成密钥失败")
 	}
 
 	// Hash secret key for storage
 	hashedSecretKey, err := bcrypt.GenerateFromPassword([]byte(plainSecretKey), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, fmt.Errorf("failed to hash secret key: %w", err)
+		return nil, pkgerr.Wrap(err, "加密密钥失败")
 	}
 
 	// Calculate expiration
@@ -115,7 +115,7 @@ func (s *accountSecretBiz) Create(ctx context.Context, ownerID uint, req *Create
 	}
 
 	if err := s.repo.AccountSecret().Create(ctx, secret); err != nil {
-		return nil, fmt.Errorf("failed to create account secret: %w", err)
+		return nil, pkgerr.Wrap(err, "创建账户密钥失败")
 	}
 
 	return &CreateResponse{
@@ -148,7 +148,7 @@ func (s *accountSecretBiz) Delete(ctx context.Context, id uint, ownerID uint) er
 		return err
 	}
 	if secret.OwnerID != ownerID {
-		return errors.New("access denied")
+		return apierr.ErrAccountAccessDenied
 	}
 	return s.repo.AccountSecret().Delete(ctx, id)
 }
@@ -178,12 +178,12 @@ func (s *accountSecretBiz) Authenticate(ctx context.Context, accountKey string, 
 	// Get secret by account key
 	secret, err := s.repo.AccountSecret().ListValidSecretsForAuth(ctx, accountKey)
 	if err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, apierr.ErrAccountInvalidCredentials
 	}
 
 	// Verify secret key
 	if err := bcrypt.CompareHashAndPassword([]byte(secret.SecretKey), []byte(plainSecretKey)); err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, apierr.ErrAccountInvalidCredentials
 	}
 
 	// Update last used at
@@ -211,12 +211,12 @@ func (s *accountSecretBiz) validatePermissions(permissions []string) error {
 	}
 
 	if len(permissions) == 0 {
-		return errors.New("at least one permission is required")
+		return apierr.ErrAccountPermissionRequired
 	}
 
 	for _, p := range permissions {
 		if !validPermissions[p] {
-			return fmt.Errorf("invalid permission: %s", p)
+			return apierr.AccountInvalidPermission(p)
 		}
 	}
 

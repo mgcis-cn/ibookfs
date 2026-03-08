@@ -3,12 +3,11 @@ package oauth
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/auth"
+	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/store"
 	"github.com/mgcis-cn/ibookfs/pkg/authn/oauth"
@@ -53,7 +52,7 @@ func NewOAuthBiz(authSvc auth.AuthBiz, oauthFactory *oauth.Factory, repo store.I
 func (s *oauthBiz) GetAuthorizeURL(ctx context.Context, provider model.OAuthProvider, redirectURI, state string) (string, error) {
 	oauth, err := s.oauthFactory.MustGet(string(provider))
 	if err != nil {
-		return "", fmt.Errorf("unsupported OAuth provider: %s", provider)
+		return "", apierr.OAuthUnsupported(string(provider))
 	}
 
 	// Store state in database for validation during callback
@@ -72,32 +71,32 @@ func (s *oauthBiz) GetAuthorizeURL(ctx context.Context, provider model.OAuthProv
 func (s *oauthBiz) HandleCallback(ctx context.Context, provider model.OAuthProvider, code, state, redirectURI, ipAddress, userAgent string) (*AuthResponse, error) {
 	// Check if state has already been processed (prevents duplicate callbacks)
 	if s.isStateProcessed(ctx, state) {
-		return nil, errors.New("this OAuth authorization has already been processed")
+		return nil, apierr.ErrOAuthStateProcessed
 	}
 
 	oauth, err := s.oauthFactory.MustGet(string(provider))
 	if err != nil {
-		return nil, fmt.Errorf("unsupported OAuth provider: %s", provider)
+		return nil, apierr.OAuthUnsupported(string(provider))
 	}
 
 	// Exchange code for token
 	accessToken, err := oauth.Exchange(ctx, code)
 	if err != nil {
-		return nil, fmt.Errorf("failed to exchange code for token: %w", err)
+		return nil, apierr.OAuthExchangeFailed(err)
 	}
 
 	// Get user info from provider
 	sourcesUserInfo, err := oauth.GetUserInfo(ctx, accessToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user info: %w", err)
+		return nil, apierr.OAuthUserInfoFailed(err)
 	}
 
 	// Validate user info - must have valid ID and Email
 	if sourcesUserInfo.ID == "" || sourcesUserInfo.ID == "0" {
-		return nil, errors.New("invalid user info: missing provider user ID")
+		return nil, apierr.ErrOAuthMissingUserID
 	}
 	if sourcesUserInfo.Email == "" {
-		return nil, errors.New("invalid user info: missing email (please make your email public or grant email permission)")
+		return nil, apierr.ErrOAuthMissingEmail
 	}
 
 	// Mark state as processed BEFORE creating user to prevent race conditions
@@ -116,13 +115,13 @@ func (s *oauthBiz) HandleCallback(ctx context.Context, provider model.OAuthProvi
 	// Find or create user (also handles OAuth identity creation/update)
 	user, isNew, err := s.findOrCreateUser(ctx, userInfo, accessToken, ipAddress, userAgent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find or create user: %w", err)
+		return nil, apierr.OAuthCreateFailed(err)
 	}
 
 	// Generate tokens
 	tokenPair, err := s.authSvc.GenerateTokenPair(ctx, user.ID, user.Email, string(user.Role))
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+		return nil, apierr.OAuthTokenFailed(err)
 	}
 
 	// Create session for token validation
@@ -145,7 +144,7 @@ func (s *oauthBiz) HandleCallback(ctx context.Context, provider model.OAuthProvi
 func (s *oauthBiz) LinkOAuth(ctx context.Context, userID uint, provider model.OAuthProvider, code, redirectURI string) error {
 	oauth, err := s.oauthFactory.MustGet(string(provider))
 	if err != nil {
-		return fmt.Errorf("unsupported OAuth provider: %s", provider)
+		return apierr.OAuthUnsupported(string(provider))
 	}
 
 	userStore := s.repo.User()
@@ -153,25 +152,25 @@ func (s *oauthBiz) LinkOAuth(ctx context.Context, userID uint, provider model.OA
 	// Check if already linked
 	_, err = userStore.GetOAuthIdentityByUserIDAndProvider(ctx, userID, provider.String())
 	if err == nil {
-		return errors.New("该OAuth账号已绑定")
+		return apierr.ErrOAuthAlreadyLinked
 	}
 
 	// Exchange code for token
 	accessToken, err := oauth.Exchange(ctx, code)
 	if err != nil {
-		return fmt.Errorf("failed to exchange code for token: %w", err)
+		return apierr.OAuthExchangeFailed(err)
 	}
 
 	// Get user info from provider
 	sourcesUserInfo, err := oauth.GetUserInfo(ctx, accessToken)
 	if err != nil {
-		return fmt.Errorf("failed to get user info: %w", err)
+		return apierr.OAuthUserInfoFailed(err)
 	}
 
 	// Check if OAuth identity is linked to another user
 	_, err = userStore.GetOAuthIdentityByProviderAndProviderUserID(ctx, provider.String(), sourcesUserInfo.ID)
 	if err == nil {
-		return errors.New("该OAuth账号已绑定到其他用户")
+		return apierr.ErrOAuthLinkedOther
 	}
 
 	// Create OAuth identity

@@ -3,10 +3,10 @@ package worker
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
+	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
 	"github.com/mgcis-cn/ibookfs/pkg/log"
 )
 
@@ -82,7 +82,7 @@ func (w *ImageWorker) Enqueue(imageID uint) (err error) {
 	// Recover from panic if channel is closed
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("worker is not running")
+			err = apierr.ErrImageWorkerStopped
 		}
 	}()
 
@@ -91,14 +91,14 @@ func (w *ImageWorker) Enqueue(imageID uint) (err error) {
 	w.mu.Unlock()
 
 	if !running {
-		return fmt.Errorf("worker is not running")
+		return apierr.ErrImageWorkerStopped
 	}
 
 	select {
 	case w.queue <- imageID:
 		return nil
 	default:
-		return fmt.Errorf("worker queue is full")
+		return apierr.ErrImageQueueFull
 	}
 }
 
