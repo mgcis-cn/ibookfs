@@ -106,6 +106,17 @@ func New(opts ...Option) *Auth {
 		opt(&o)
 	}
 
+	// Rebuild keyfunc to use the actual signingKey (not the hardcoded default)
+	if o.keyfunc == nil || o.signingKey != nil {
+		signingKey := o.signingKey
+		o.keyfunc = func(t *jwt.Token) (any, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrTokenSignatureInvalid
+			}
+			return signingKey, nil
+		}
+	}
+
 	return &Auth{opts: &o}
 }
 

@@ -110,10 +110,10 @@ func RegisterApiServerHTTPServer(s *http.Server, srv ApiServerHTTPServer) {
 func serveImageHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in ServeImageRequest
-		if err := ctx.Bind(&in); err != nil {
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		if err := ctx.BindQuery(&in); err != nil {
+		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
 		cresp := ctx.Response()
@@ -175,10 +175,7 @@ func createGroupHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func deleteImageHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) (err error) {
 		var in DeleteImageRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
-		if err := ctx.BindQuery(&in); err != nil {
+		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
 		h := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
@@ -219,10 +216,10 @@ func uploadImageHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func getImageHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in GetImageRequest
-		if err := ctx.Bind(&in); err != nil {
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		if err := ctx.BindQuery(&in); err != nil {
+		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
 		h := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
@@ -240,9 +237,6 @@ func getImageHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func listImagesHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in ListImagesRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
@@ -261,9 +255,6 @@ func listImagesHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func healthHttpHandler(srv ApiServerHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in HealthRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
@@ -284,9 +275,6 @@ func healthHttpHandler(srv ApiServerHTTPServer) func(ctx http.Context) error {
 func listBooksHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in ListBooksRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
@@ -305,10 +293,10 @@ func listBooksHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func getBookHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in GetBookRequest
-		if err := ctx.Bind(&in); err != nil {
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		if err := ctx.BindQuery(&in); err != nil {
+		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
 		h := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
@@ -368,10 +356,7 @@ func updateBookHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func deleteBookHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in DeleteBookRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
-		if err := ctx.BindQuery(&in); err != nil {
+		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
 		h := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
@@ -391,9 +376,6 @@ func deleteBookHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func listAccountSecretsHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in ListAccountSecretsRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
@@ -412,10 +394,10 @@ func listAccountSecretsHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func getAccountSecretHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in GetAccountSecretRequest
-		if err := ctx.Bind(&in); err != nil {
+		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
-		if err := ctx.BindQuery(&in); err != nil {
+		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
 		h := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
@@ -454,10 +436,7 @@ func createAccountSecretHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func deleteAccountSecretHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in DeleteAccountSecretRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
-		if err := ctx.BindQuery(&in); err != nil {
+		if err := ctx.BindVars(&in); err != nil {
 			return err
 		}
 		h := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
@@ -628,9 +607,6 @@ func logoutHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func getCurrentUserHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in GetCurrentUserRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
@@ -649,9 +625,6 @@ func getCurrentUserHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func getLinkedAccountsHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in GetLinkedAccountsRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
@@ -775,9 +748,6 @@ func updateProfileHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func getConfigHttpHandler(srv ApiServerHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in GetConfigRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
@@ -797,9 +767,6 @@ func getConfigHttpHandler(srv ApiServerHTTPServer) func(ctx http.Context) error 
 func oAuthAuthorizeHttpHandler(srv ApiServerHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in OAuthAuthorizeRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}

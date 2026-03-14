@@ -2,6 +2,7 @@ package apiserver
 
 import (
 	"encoding/json"
+	"log"
 	nethttp "net/http"
 
 	"github.com/go-kratos/kratos/v2/transport/http"
@@ -61,7 +62,7 @@ func (c *ServerConfig) NewHTTPServer() *http.Server {
 				"X-Signature",
 				"X-Expires",
 			}),
-			handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS"}),
+			handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS", "DELETE"}),
 			handlers.AllowedOrigins([]string{"*"}),
 		)),
 	}
@@ -79,5 +80,27 @@ func (c *ServerConfig) NewHTTPServer() *http.Server {
 	}
 	srv := http.NewServer(opts...)
 	v1.RegisterApiServerHTTPServer(srv, c.handler)
+
+	r := srv.Route("/")
+
+	// Generate OpenAPI spec at startup
+	doc := v1.BuildOpenAPISpec()
+	specJSON, err := doc.MarshalJSON()
+	if err != nil {
+		log.Printf("[WARN] failed to generate OpenAPI spec: %v", err)
+	} else {
+		v1.SetOpenAPISpec(specJSON)
+	}
+
+	// Serve OpenAPI spec and Swagger UI
+	r.GET("/openapi.json", func(ctx http.Context) error {
+		v1.OpenAPISpecHandler()(ctx.Response(), ctx.Request())
+		return nil
+	})
+	r.GET("/swagger", func(ctx http.Context) error {
+		v1.OpenAPISwaggerUIHandler("/openapi.json")(ctx.Response(), ctx.Request())
+		return nil
+	})
+
 	return srv
 }

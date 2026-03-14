@@ -98,6 +98,8 @@ func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
 	server.middlewares = mw.NewMiddlewares(&mw.Config{
 		SkipAuthPaths: []string{
 			"/health",
+			"/swagger",
+			"/openapi.json",
 			"/api/v1/auth/send-code",
 			"/api/v1/auth/login",
 			"/api/v1/auth/register",

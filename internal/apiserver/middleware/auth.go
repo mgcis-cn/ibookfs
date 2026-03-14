@@ -27,7 +27,7 @@ func Auth(cfg *AuthConfig) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			// Get transport info
-			tr, ok := transport.FromClientContext(ctx)
+			tr, ok := transport.FromServerContext(ctx)
 			if !ok {
 				return handler(ctx, req)
 			}
