@@ -28,13 +28,6 @@ type AuthRouter interface {
 	UpdateProfile(ctx context.Context, req *v1.UpdateProfileRequest) (*v1.UpdateProfileResponse, error)
 }
 
-// APIResponse represents a standard API response.
-type APIResponse struct {
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data,omitempty"`
-	Message string      `json:"message,omitempty"`
-}
-
 // SendCode handles POST /auth/send-code
 func (h *handler) SendCode(ctx context.Context, req *v1.SendCodeRequest) (*v1.SendCodeResponse, error) {
 	// Validate type

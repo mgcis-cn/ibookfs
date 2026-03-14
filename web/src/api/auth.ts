@@ -33,13 +33,14 @@ async function apiCall<T>(
     body: data ? JSON.stringify(data) : undefined,
   })
 
-  const result = await response.json()
-
-  if (!response.ok || !result.success) {
-    throw new Error(result.message || 'Request failed')
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Request failed' }))
+    throw new Error(error.message || 'Request failed')
   }
 
-  return result
+  const json = await response.json()
+  // Wrap raw backend response into ApiResponse format
+  return { success: true, data: json } as T
 }
 
 // Import types from global types

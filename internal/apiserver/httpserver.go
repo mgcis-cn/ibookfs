@@ -11,29 +11,19 @@ import (
 	pkgerr "github.com/mgcis-cn/ibookfs/pkg/errors"
 )
 
-// apiResponse wraps all successful responses for the frontend.
-type apiResponse struct {
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
 // apiErrorResponse wraps all error responses for the frontend.
 type apiErrorResponse struct {
-	Success bool   `json:"success"`
 	Code    int    `json:"code,omitempty"`
 	Message string `json:"message"`
 }
 
-// responseEncoder wraps handler responses with {success: true, data: ...}.
+// responseEncoder encodes handler responses directly as JSON.
 func responseEncoder(w nethttp.ResponseWriter, r *nethttp.Request, v interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(apiResponse{
-		Success: true,
-		Data:    v,
-	})
+	return json.NewEncoder(w).Encode(v)
 }
 
-// errorEncoder wraps handler errors with {success: false, code: ..., message: ...}.
+// errorEncoder encodes handler errors as {code, message}.
 // It extracts the HTTP status and error code from pkgerr.Error if available;
 // otherwise falls back to 400 Bad Request.
 func errorEncoder(w nethttp.ResponseWriter, r *nethttp.Request, err error) {
@@ -51,7 +41,6 @@ func errorEncoder(w nethttp.ResponseWriter, r *nethttp.Request, err error) {
 
 	w.WriteHeader(httpStatus)
 	json.NewEncoder(w).Encode(apiErrorResponse{
-		Success: false,
 		Code:    errCode,
 		Message: message,
 	})
