@@ -1,15 +1,21 @@
-node_modules
-.DS_Store
-dist
-dist-ssr
-*.local
-.vscode/*
-!.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Dependencies
+node_modules/
+
+# Build
+dist/
+.vite/
+
+# Environment
+.env
 .env.local
 .env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
