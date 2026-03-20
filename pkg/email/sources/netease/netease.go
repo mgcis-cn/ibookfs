@@ -71,7 +71,7 @@ func (e *Email) sendSMTP(addr, to string, msg []byte) error {
 	var client *smtp.Client
 	var err error
 
-	if e.Port == 465 {
+	if e.Port == 465 || e.Port == 994 || e.Port == 587 {
 		tlsConfig := &tls.Config{ServerName: e.Host, MinVersion: tls.VersionTLS12}
 		conn, err := tls.Dial("tcp", addr, tlsConfig)
 		if err != nil {
