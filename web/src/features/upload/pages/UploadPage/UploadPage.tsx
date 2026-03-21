@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { booksApi } from '@/features/library/api'
 import { useToastStore } from '@/shared/stores/toast'
 import type { Book } from '@/features/library/types'
-import { Upload as UploadIcon, Check, X, ArrowUpDown, CheckCircle } from 'lucide-react'
+import { Upload as UploadIcon, Check, X, ArrowUpDown, CheckCircle, GripVertical } from 'lucide-react'
 import './UploadPage.css'
 
 interface UploadPhoto {
@@ -31,6 +31,8 @@ export default function UploadPage() {
   const [targetBook, setTargetBook] = useState<Book | null>(null)
   const [uploadDone, setUploadDone] = useState(false)
   const [uploadedCount, setUploadedCount] = useState(0)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const startPage = 1
 
   useEffect(() => {
@@ -74,8 +76,10 @@ export default function UploadPage() {
   }
 
   const handleRemovePhoto = (id: string) => {
-    setUploadPhotos(prev => prev.filter(p => p.id !== id))
+    const remaining = uploadPhotos.filter(p => p.id !== id)
+    setUploadPhotos(remaining)
     setSelectedPhotos(prev => { const s = new Set(prev); s.delete(id); return s })
+    if (remaining.length === 0 && currentStep === 2) setCurrentStep(1)
   }
 
   const handleClearAll = () => {
@@ -83,6 +87,7 @@ export default function UploadPage() {
       uploadPhotos.forEach(p => URL.revokeObjectURL(p.preview))
       setUploadPhotos([])
       setSelectedPhotos(new Set())
+      if (currentStep === 2) setCurrentStep(1)
     }
   }
 
@@ -97,6 +102,30 @@ export default function UploadPage() {
       if (s.has(id)) s.delete(id); else s.add(id)
       return s
     })
+  }
+
+  const handleDragStart = (index: number) => {
+    setDragIndex(index)
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    setDragOverIndex(index)
+  }
+
+  const handleDragEnd = () => {
+    if (dragIndex !== null && dragOverIndex !== null && dragIndex !== dragOverIndex) {
+      setUploadPhotos(prev => {
+        const items = [...prev]
+        const moved = items[dragIndex]
+        if (!moved) return prev
+        items.splice(dragIndex, 1)
+        items.splice(dragOverIndex, 0, moved)
+        return items
+      })
+    }
+    setDragIndex(null)
+    setDragOverIndex(null)
   }
 
   const handleUpload = async () => {
@@ -197,11 +226,23 @@ export default function UploadPage() {
           </div>
           <div className="preview-grid">
             {uploadPhotos.map((photo, index) => (
-              <div key={photo.id} className={`preview-item ${selectedPhotos.has(photo.id) ? 'selected' : ''}`} onClick={() => toggleSelectPhoto(photo.id)}>
+              <div
+                key={photo.id}
+                className={`preview-item ${selectedPhotos.has(photo.id) ? 'selected' : ''} ${dragIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={e => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                onClick={() => toggleSelectPhoto(photo.id)}
+              >
+                <div className="preview-seq">{index + 1}</div>
                 <img src={photo.preview} alt="" />
                 <div className="preview-overlay">
-                  <span className="page-number">第 {index + 1} 页</span>
-                  <button className="remove-btn" onClick={e => { e.stopPropagation(); handleRemovePhoto(photo.id) }}><X size={16} /></button>
+                  <div className="drag-handle"><GripVertical size={16} /></div>
+                  <div className="preview-item-footer">
+                    <span className="page-number">{photo.file.name}</span>
+                    <button className="remove-btn" onClick={e => { e.stopPropagation(); handleRemovePhoto(photo.id) }}><X size={16} /></button>
+                  </div>
                 </div>
                 {selectedPhotos.has(photo.id) && <div className="selected-badge"><Check size={16} /></div>}
               </div>
