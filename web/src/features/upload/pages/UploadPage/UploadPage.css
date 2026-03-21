@@ -293,6 +293,35 @@
   color: var(--color-ink-light);
 }
 
+/* Upload Success */
+.upload-success {
+  text-align: center;
+  padding: var(--space-10, 2.5rem);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-8);
+}
+
+.upload-success .success-icon {
+  color: var(--color-success);
+  margin-bottom: var(--space-4);
+}
+
+.upload-success h2 {
+  font-size: var(--text-3xl);
+  margin-bottom: var(--space-3);
+  color: var(--color-ink);
+}
+
+.upload-success p {
+  font-size: var(--text-lg);
+  color: var(--color-ink-light);
+}
+
+.upload-success p strong {
+  color: var(--color-ink);
+}
+
 @media (max-width: 768px) {
   .page-upload {
     padding: var(--space-4);

@@ -7,7 +7,6 @@ import (
 
 	"github.com/mgcis-cn/ibookfs/internal/apiserver/biz/image"
 	apierr "github.com/mgcis-cn/ibookfs/internal/apiserver/errors"
-	"github.com/mgcis-cn/ibookfs/internal/apiserver/model"
 	v1 "github.com/mgcis-cn/ibookfs/pkg/api/apiserver/v1"
 	contextx "github.com/mgcis-cn/ibookfs/pkg/context"
 )
@@ -17,9 +16,8 @@ type ImageRouter interface {
 	GetImage(ctx context.Context, req *v1.GetImageRequest) (*v1.GetImageResponse, error)
 	UploadImage(ctx context.Context, req *v1.UploadImageRequest) (*v1.UploadImageResponse, error)
 	DeleteImage(ctx context.Context, req *v1.DeleteImageRequest) (*v1.DeleteImageResponse, error)
-	CreateGroup(ctx context.Context, req *v1.CreateGroupRequest) (*v1.CreateGroupResponse, error)
-	AddImagesToGroup(ctx context.Context, req *v1.AddImagesToGroupRequest) (*v1.AddImagesToGroupResponse, error)
 	ServeImage(ctx context.Context, req *v1.ServeImageRequest) (*v1.ServeImageResponse, error)
+	ListBookImages(ctx context.Context, req *v1.ListBookImagesRequest) (*v1.ListBookImagesResponse, error)
 }
 
 // UploadImage handles image upload requests.
@@ -110,84 +108,20 @@ func (h *handler) DeleteImage(ctx context.Context, req *v1.DeleteImageRequest) (
 	}, nil
 }
 
-// CreateGroup creates a new image group.
-func (h *handler) CreateGroup(ctx context.Context, req *v1.CreateGroupRequest) (*v1.CreateGroupResponse, error) {
-	userID := uint(contextx.UserId(ctx))
-
-	var refId *uint
-	if req.RefID != nil {
-		refId = req.RefID
-	}
-
-	group, err := h.biz.Image().CreateGroup(
-		ctx,
-		userID,
-		model.ImageGroupType(req.GroupType),
-		req.GroupName,
-		refId,
-		req.RefType,
-	)
-	if err != nil {
-		return &v1.CreateGroupResponse{}, err
-	}
-
-	return &v1.CreateGroupResponse{
-		Data:    group,
-		Message: "success",
-	}, nil
-}
-
-// AddImagesToGroup adds images to an existing group.
-func (h *handler) AddImagesToGroup(ctx context.Context, req *v1.AddImagesToGroupRequest) (*v1.AddImagesToGroupResponse, error) {
-	imageIds := make([]uint, len(req.ImageIds))
-	for i, id := range req.ImageIds {
-		imageIds[i] = uint(id)
-	}
-
-	if err := h.biz.Image().AddImagesToGroup(ctx, uint(req.Id), imageIds); err != nil {
-		return &v1.AddImagesToGroupResponse{}, err
-	}
-
-	return &v1.AddImagesToGroupResponse{
-		Message: "success",
-	}, nil
-}
-
 // ServeImage serves an image file.
-// This endpoint can be accessed with either JWTOptions auth or access token.
 // Note: This method is kept as a gin.HandlerFunc because it streams files directly.
 func (h *handler) ServeImage(ctx context.Context, req *v1.ServeImageRequest) (*v1.ServeImageResponse, error) {
-	var res *model.Image
+	// Use JWT authentication
+	userId := contextx.UserId(ctx)
 
-	// Try to get image by access token first (for shared/public access)
-	if req.Token != "" {
-		img, err := h.biz.Image().GetByAccessToken(ctx, req.Token)
-		if err != nil {
-			//c.JSON(http.StatusNotFound, gin.H{"error": "image not found"})
-			return &v1.ServeImageResponse{}, err
-		}
-
-		// Verify ID matches
-		if img.ID != uint(req.Id) {
-			return &v1.ServeImageResponse{}, apierr.ErrImageAccessDenied
-		}
-		res = img
-	} else {
-		// Fall back to JWTOptions authentication
-		userId := contextx.UserId(ctx)
-
-		img, err := h.biz.Image().GetByID(ctx, uint(req.Id), uint(userId))
-		if err != nil {
-			//c.JSON(http.StatusNotFound, gin.H{"error": "image not found"})
-			return &v1.ServeImageResponse{}, err
-		}
-		res = img
+	img, err := h.biz.Image().GetByID(ctx, uint(req.Id), uint(userId))
+	if err != nil {
+		return &v1.ServeImageResponse{}, err
 	}
 
 	// Download the file
-	reader, mimeType, err := h.biz.Image().DownloadFile(ctx, res, req.Variant)
+	reader, mimeType, err := h.biz.Image().DownloadFile(ctx, img, req.Variant)
 	if err != nil {
-		//c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to download image"})
 		return &v1.ServeImageResponse{}, err
 	}
 	defer reader.Close()
@@ -201,4 +135,30 @@ func (h *handler) ServeImage(ctx context.Context, req *v1.ServeImageRequest) (*v
 	// Stream the file
 	_, err = io.Copy(resp, reader)
 	return &v1.ServeImageResponse{}, err
+}
+
+// ListBookImages returns a paginated list of images for a specific book.
+func (h *handler) ListBookImages(ctx context.Context, req *v1.ListBookImagesRequest) (*v1.ListBookImagesResponse, error) {
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.PageSize < 1 || req.PageSize > 100 {
+		req.PageSize = 20
+	}
+
+	images, total, err := h.biz.Image().ListByBookID(ctx, uint(req.Id), req.Page, req.PageSize)
+	if err != nil {
+		return &v1.ListBookImagesResponse{}, err
+	}
+
+	data := map[string]any{
+		"items": images,
+		"total": total,
+	}
+
+	return &v1.ListBookImagesResponse{
+		Data:    data,
+		Total:   total,
+		Message: "success",
+	}, nil
 }

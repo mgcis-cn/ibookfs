@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { booksApi } from '@/features/library/api'
 import { useToastStore } from '@/shared/stores/toast'
 import type { Book } from '@/features/library/types'
-import { Upload as UploadIcon, Check, X, ArrowUpDown } from 'lucide-react'
+import { Upload as UploadIcon, Check, X, ArrowUpDown, CheckCircle } from 'lucide-react'
 import './UploadPage.css'
 
 interface UploadPhoto {
@@ -29,6 +29,8 @@ export default function UploadPage() {
   const [uploadPhotos, setUploadPhotos] = useState<UploadPhoto[]>([])
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set())
   const [targetBook, setTargetBook] = useState<Book | null>(null)
+  const [uploadDone, setUploadDone] = useState(false)
+  const [uploadedCount, setUploadedCount] = useState(0)
   const startPage = 1
 
   useEffect(() => {
@@ -134,8 +136,9 @@ export default function UploadPage() {
       }
 
       setUploadStatus('上传完成！')
+      setUploadDone(true)
+      setUploadedCount(successCount)
       toast('success', `成功上传 ${successCount} 张照片`)
-      setTimeout(() => navigate(`/book/${bookId}`), 1000)
     } catch (error) {
       console.error('Upload Error:', error)
       toast('error', '上传失败，请重试')
@@ -211,33 +214,60 @@ export default function UploadPage() {
         </div>
       )}
 
-      {/* Step 3: Confirm */}
+      {/* Step 3: Confirm / Uploading / Done */}
       {currentStep === 3 && (
         <div className="upload-step">
-          <div className="upload-summary">
-            <h2>确认上传</h2>
-            <div className="summary-info">
-              {targetBook && <p>书籍：<strong>{targetBook.title}</strong></p>}
-              <p>照片数量：<strong>{uploadPhotos.length} 张</strong></p>
-              <p>起始页码：<strong>第 {startPage} 页</strong></p>
-            </div>
-          </div>
-
-          {uploading && (
-            <div className="upload-progress">
-              <div className="progress-bar-container">
-                <div className="progress-bar" style={{ width: `${uploadProgress}%` }} />
+          {uploadDone ? (
+            <>
+              <div className="upload-success">
+                <CheckCircle size={64} className="success-icon" />
+                <h2>上传成功</h2>
+                <p>已成功上传 <strong>{uploadedCount}</strong> 张照片到《{targetBook?.title}》</p>
               </div>
-              <p className="progress-text">{uploadStatus}</p>
-            </div>
-          )}
+              <div className="upload-actions">
+                <button className="btn-secondary" onClick={() => navigate(`/book/${bookId}`)}>查看书籍详情</button>
+                <button className="btn-primary" onClick={() => {
+                  uploadPhotos.forEach(p => URL.revokeObjectURL(p.preview))
+                  setUploadPhotos([])
+                  setSelectedPhotos(new Set())
+                  setUploadDone(false)
+                  setUploadedCount(0)
+                  setUploadProgress(0)
+                  setUploadStatus('')
+                  setCurrentStep(1)
+                }}>
+                  继续上传
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="upload-summary">
+                <h2>确认上传</h2>
+                <div className="summary-info">
+                  {targetBook && <p>书籍：<strong>{targetBook.title}</strong></p>}
+                  <p>照片数量：<strong>{uploadPhotos.length} 张</strong></p>
+                  <p>起始页码：<strong>第 {startPage} 页</strong></p>
+                </div>
+              </div>
 
-          <div className="upload-actions">
-            <button className="btn-secondary" disabled={uploading} onClick={() => setCurrentStep(2)}>上一步</button>
-            <button className="btn-primary" disabled={uploadPhotos.length === 0 || uploading} onClick={handleUpload}>
-              {uploading ? '上传中...' : '开始上传'}
-            </button>
-          </div>
+              {uploading && (
+                <div className="upload-progress">
+                  <div className="progress-bar-container">
+                    <div className="progress-bar" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                  <p className="progress-text">{uploadStatus}</p>
+                </div>
+              )}
+
+              <div className="upload-actions">
+                <button className="btn-secondary" disabled={uploading} onClick={() => setCurrentStep(2)}>上一步</button>
+                <button className="btn-primary" disabled={uploadPhotos.length === 0 || uploading} onClick={handleUpload}>
+                  {uploading ? '上传中...' : '开始上传'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

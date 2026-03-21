@@ -17,6 +17,7 @@ type IBookStore interface {
 	Delete(ctx context.Context, id uint, userID uint) error
 	List(ctx context.Context, query ListQuery) ([]model.Book, int64, error)
 	SetCoverIfEmpty(ctx context.Context, bookID uint, userID uint, coverURL string) error
+	UpdateUploadedPages(ctx context.Context, bookID uint) error
 }
 
 // BookStore handles book data operations.
@@ -107,4 +108,19 @@ func (r *BookStore) SetCoverIfEmpty(ctx context.Context, bookID uint, userID uin
 	return r.db.Conn(ctx).Model(&model.Book{}).
 		Where("id = ? AND user_id = ? AND (cover = '' OR cover IS NULL)", bookID, userID).
 		Update("cover", coverURL).Error
+}
+
+// UpdateUploadedPages recalculates and updates the uploaded_pages count for a book.
+func (r *BookStore) UpdateUploadedPages(ctx context.Context, bookID uint) error {
+	var count int64
+	err := r.db.Conn(ctx).Model(&model.BookImage{}).
+		Where("book_id = ?", bookID).
+		Count(&count).Error
+	if err != nil {
+		return err
+	}
+
+	return r.db.Conn(ctx).Model(&model.Book{}).
+		Where("id = ?", bookID).
+		Update("uploaded_pages", count).Error
 }

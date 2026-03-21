@@ -23,13 +23,11 @@ import (
 type ImageBiz interface {
 	Upload(ctx context.Context, req *UploadRequest) (*UploadResponse, error)
 	GetByID(ctx context.Context, id uint, ownerID uint) (*model.Image, error)
-	GetByAccessToken(ctx context.Context, token string) (*model.Image, error)
 	List(ctx context.Context, ownerID uint, page, pageSize int) ([]*model.Image, int64, error)
 	Delete(ctx context.Context, id uint, ownerID uint) error
 	ProcessImage(ctx context.Context, imageID uint) error
 	DownloadFile(ctx context.Context, image *model.Image, variant string) (ssources.ReadCloser, string, error)
-	CreateGroup(ctx context.Context, ownerID uint, groupType model.ImageGroupType, groupName string, refID *uint, refType *string) (*model.ImageGroup, error)
-	AddImagesToGroup(ctx context.Context, groupID uint, imageIDs []uint) error
+	ListByBookID(ctx context.Context, bookID uint, page, pageSize int) ([]*model.Image, int64, error)
 }
 
 // ImageWorker defines the interface for asynchronous image processing.
@@ -78,8 +76,6 @@ type UploadResponse struct {
 	Width        int    `json:"width"`
 	Height       int    `json:"height"`
 	Blurhash     string `json:"blurhash,omitempty"`
-	Status       string `json:"status"`
-	AccessToken  string `json:"access_token"`
 	URL          string `json:"url"`
 }
 
@@ -126,12 +122,6 @@ func (s *imageBiz) Upload(ctx context.Context, req *UploadRequest) (*UploadRespo
 		return nil, apierr.ImageUploadFailed(err)
 	}
 
-	// Generate access token
-	accessToken, err := generateAccessToken()
-	if err != nil {
-		return nil, pkgerr.Wrap(err, "生成访问令牌失败")
-	}
-
 	// Create image record
 	image := &model.Image{
 		OwnerID:      req.OwnerID,
@@ -143,8 +133,6 @@ func (s *imageBiz) Upload(ctx context.Context, req *UploadRequest) (*UploadRespo
 		Height:       info.Height,
 		StorageType:  string(s.storage.Kind()),
 		StoragePath:  storagePath,
-		AccessToken:  accessToken,
-		Status:       model.ImageStatusProcessing,
 	}
 
 	if err := s.repo.Image().Create(ctx, image); err != nil {
@@ -153,15 +141,14 @@ func (s *imageBiz) Upload(ctx context.Context, req *UploadRequest) (*UploadRespo
 		return nil, pkgerr.Wrap(err, "创建图片记录失败")
 	}
 
-	// Associate image with book's image group if BookID is provided
+	// Associate image with book if BookID is provided
 	if req.BookID != nil {
-		// Get or create image group for the book
-		groupID, err := s.repo.Image().GetOrCreateBookImageGroup(ctx, *req.BookID, req.OwnerID)
-		if err != nil {
-			fmt.Printf("warning: failed to get/create image group for book %d: %v\n", *req.BookID, err)
+		if err := s.repo.Image().AddImageToBook(ctx, image.ID, req.OwnerID, *req.BookID); err != nil {
+			fmt.Printf("warning: failed to add image %d to book %d: %v\n", image.ID, *req.BookID, err)
 		} else {
-			if err := s.repo.Image().AddImagesToGroup(ctx, groupID, []uint{image.ID}); err != nil {
-				fmt.Printf("warning: failed to add image %d to group %d: %v\n", image.ID, groupID, err)
+			// Update book uploaded pages count
+			if err := s.repo.Book().UpdateUploadedPages(ctx, *req.BookID); err != nil {
+				fmt.Printf("warning: failed to update uploaded pages for book %d: %v\n", *req.BookID, err)
 			}
 		}
 
@@ -174,10 +161,7 @@ func (s *imageBiz) Upload(ctx context.Context, req *UploadRequest) (*UploadRespo
 
 	// Enqueue for async processing
 	if err := s.worker.Enqueue(image.ID); err != nil {
-		// Worker not available, mark as failed but don't fail the upload
-		// Username can retry processing later via API
-		image.Status = model.ImageStatusFailed
-		_ = s.repo.Image().Update(ctx, image)
+		// Worker not available, log warning but don't fail the upload
 		fmt.Printf("warning: failed to enqueue image %d for processing: %v\n", image.ID, err)
 	}
 
@@ -189,8 +173,6 @@ func (s *imageBiz) Upload(ctx context.Context, req *UploadRequest) (*UploadRespo
 		Size:         image.Size,
 		Width:        image.Width,
 		Height:       image.Height,
-		Status:       string(image.Status),
-		AccessToken:  image.AccessToken,
 		URL:          s.storage.GetURL(storagePath),
 	}, nil
 }
@@ -208,11 +190,6 @@ func (s *imageBiz) GetByID(ctx context.Context, id uint, ownerID uint) (*model.I
 	}
 
 	return image, nil
-}
-
-// GetByAccessToken retrieves an image using its access token.
-func (s *imageBiz) GetByAccessToken(ctx context.Context, token string) (*model.Image, error) {
-	return s.repo.Image().GetByAccessToken(ctx, token)
 }
 
 // List retrieves images for an owner with pagination.
@@ -263,9 +240,6 @@ func (s *imageBiz) ProcessImage(ctx context.Context, imageID uint) error {
 	// Process the image
 	result, err := s.processor.Process(ctx, sourcePath, filepath.Dir(sourcePath))
 	if err != nil {
-		// Update status to failed
-		image.Status = model.ImageStatusFailed
-		_ = s.repo.Image().Update(ctx, image)
 		return pkgerr.Wrap(err, "图片处理失败")
 	}
 
@@ -279,16 +253,13 @@ func (s *imageBiz) ProcessImage(ctx context.Context, imageID uint) error {
 
 		image.Variants = append(image.Variants, model.ImageVariant{
 			ImageID:  image.ID,
-			Variant:  model.ImageVariantType(v.Name),
+			Variant:  v.Name,
 			Width:    v.Width,
 			Height:   v.Height,
 			FileSize: v.FileSize,
 			FilePath: relPath,
 		})
 	}
-
-	// Update status to ready
-	image.Status = model.ImageStatusReady
 
 	return s.repo.Image().Update(ctx, image)
 }
@@ -323,24 +294,10 @@ func (s *imageBiz) DownloadFile(ctx context.Context, image *model.Image, variant
 	return reader, image.MimeType, nil
 }
 
-// CreateGroup creates a new image group.
-func (s *imageBiz) CreateGroup(ctx context.Context, ownerID uint, groupType model.ImageGroupType, groupName string, refID *uint, refType *string) (*model.ImageGroup, error) {
-	group := &model.ImageGroup{
-		OwnerID:   ownerID,
-		GroupType: groupType,
-		GroupName: groupName,
-		RefID:     refID,
-		RefType:   refType,
-	}
-
-	// Use repository to create group (implementation needed)
-	return group, nil
-}
-
-// AddImagesToGroup adds images to a group.
-func (s *imageBiz) AddImagesToGroup(ctx context.Context, groupID uint, imageIDs []uint) error {
-	// Implementation needed
-	return nil
+// ListByBookID retrieves images associated with a book.
+func (s *imageBiz) ListByBookID(ctx context.Context, bookID uint, page, pageSize int) ([]*model.Image, int64, error) {
+	offset := (page - 1) * pageSize
+	return s.repo.Image().ListByBookID(ctx, bookID, pageSize, offset)
 }
 
 // getStorageBasePath returns the base path for local storage.
@@ -355,13 +312,4 @@ func generateRandomFilename(ext string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b) + ext, nil
-}
-
-// generateAccessToken generates a secure access token.
-func generateAccessToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
 }

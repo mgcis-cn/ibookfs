@@ -80,4 +80,71 @@ export const booksApi = {
   delete: async (id: string) => {
     await apiCall<{ message: string }>(`/books/${id}`, 'DELETE')
   },
+
+  listImages: async (bookId: string, page = 1, pageSize = 50) => {
+    const response = await apiCall<{ data: { items: BackendBookImage[]; total: number }; total: number }>(
+      `/books/${bookId}/images?page=${page}&page_size=${pageSize}`,
+    )
+    return {
+      items: (response.data?.items || []).map(transformBookImage),
+      total: response.data?.total || response.total || 0,
+    }
+  },
+}
+
+interface BackendBookImage {
+  id: number
+  filename: string
+  original_name: string
+  mime_type: string
+  size: number
+  width: number
+  height: number
+  blurhash: string
+  storage_path: string
+  status: string
+  created_at: string
+  variants?: BackendImageVariant[]
+}
+
+interface BackendImageVariant {
+  id: number
+  variant: string
+  width: number
+  height: number
+  file_size: number
+  file_path: string
+}
+
+export interface BookImage {
+  id: string
+  filename: string
+  originalName: string
+  width: number
+  height: number
+  blurhash: string
+  storagePath: string
+  status: string
+  createdAt: string
+  variants: { variant: string; filePath: string; width: number; height: number }[]
+}
+
+function transformBookImage(img: BackendBookImage): BookImage {
+  return {
+    id: String(img.id),
+    filename: img.filename,
+    originalName: img.original_name,
+    width: img.width,
+    height: img.height,
+    blurhash: img.blurhash || '',
+    storagePath: img.storage_path,
+    status: img.status,
+    createdAt: img.created_at,
+    variants: (img.variants || []).map(v => ({
+      variant: v.variant,
+      filePath: v.file_path,
+      width: v.width,
+      height: v.height,
+    })),
+  }
 }

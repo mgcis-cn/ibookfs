@@ -19,16 +19,13 @@ type ApiServerHTTPServer interface {
 	DeleteImage(ctx context.Context, req *DeleteImageRequest) (*DeleteImageResponse, error)
 	ServeImage(ctx context.Context, req *ServeImageRequest) (*ServeImageResponse, error)
 
-	// Image Groups
-	CreateGroup(ctx context.Context, req *CreateGroupRequest) (*CreateGroupResponse, error)
-	AddImagesToGroup(ctx context.Context, req *AddImagesToGroupRequest) (*AddImagesToGroupResponse, error)
-
 	// Books
 	ListBooks(ctx context.Context, req *ListBooksRequest) (*ListBooksResponse, error)
 	GetBook(ctx context.Context, req *GetBookRequest) (*GetBookResponse, error)
 	CreateBook(ctx context.Context, req *CreateBookRequest) (*CreateBookResponse, error)
 	UpdateBook(ctx context.Context, req *UpdateBookRequest) (*UpdateBookResponse, error)
 	DeleteBook(ctx context.Context, req *DeleteBookRequest) (*DeleteBookResponse, error)
+	ListBookImages(ctx context.Context, req *ListBookImagesRequest) (*ListBookImagesResponse, error)
 
 	// Account Secrets
 	ListAccountSecrets(ctx context.Context, req *ListAccountSecretsRequest) (*ListAccountSecretsResponse, error)
@@ -68,11 +65,8 @@ func RegisterApiServerHTTPServer(s *http.Server, srv ApiServerHTTPServer) {
 	r.POST("/api/v1/images", uploadImageHttpHandler(srv))
 	r.DELETE("/api/v1/images/{id}", deleteImageHttpHandler(srv))
 
-	// imageGroup
-	r.POST("/api/v1/images/groups/{id}/images", addImagesToGroupHttpHandler(srv))
-	r.POST("/api/v1/images/groups", createGroupHttpHandler(srv))
-
 	// books
+	r.GET("/api/v1/books/{id}/images", listBookImagesHttpHandler(srv))
 	r.GET("/api/v1/books/{id}", getBookHttpHandler(srv))
 	r.GET("/api/v1/books", listBooksHttpHandler(srv))
 	r.POST("/api/v1/books", createBookHttpHandler(srv))
@@ -125,49 +119,7 @@ func serveImageHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 		if err != nil {
 			return err
 		}
-		reply := out.(*AddImagesToGroupResponse)
-		return ctx.Result(200, reply)
-	}
-}
-
-func addImagesToGroupHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
-	return func(ctx http.Context) error {
-		var in AddImagesToGroupRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
-		if err := ctx.BindQuery(&in); err != nil {
-			return err
-		}
-		h := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
-			return srv.AddImagesToGroup(ctx, req.(*AddImagesToGroupRequest))
-		})
-		out, err := h(ctx, &in)
-		if err != nil {
-			return err
-		}
-		reply := out.(*AddImagesToGroupResponse)
-		return ctx.Result(200, reply)
-	}
-}
-
-func createGroupHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
-	return func(ctx http.Context) error {
-		var in CreateGroupRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
-		if err := ctx.BindQuery(&in); err != nil {
-			return err
-		}
-		h := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
-			return srv.CreateGroup(ctx, req.(*CreateGroupRequest))
-		})
-		out, err := h(ctx, &in)
-		if err != nil {
-			return err
-		}
-		reply := out.(*CreateGroupResponse)
+		reply := out.(*ServeImageResponse)
 		return ctx.Result(200, reply)
 	}
 }
@@ -283,6 +235,27 @@ func listBooksHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 			return err
 		}
 		reply := out.(*ListBooksResponse)
+		return ctx.Result(200, reply)
+	}
+}
+
+func listBookImagesHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
+	return func(ctx http.Context) error {
+		var in ListBookImagesRequest
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		h := ctx.Middleware(func(ctx context.Context, req any) (any, error) {
+			return srv.ListBookImages(ctx, req.(*ListBookImagesRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ListBookImagesResponse)
 		return ctx.Result(200, reply)
 	}
 }

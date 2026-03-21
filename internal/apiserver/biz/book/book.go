@@ -14,6 +14,7 @@ type BookBiz interface {
 	GetByID(ctx context.Context, id uint, userID uint) (*model.Book, error)
 	Update(ctx context.Context, book *model.Book) error
 	UpdateFields(ctx context.Context, bookID uint, userID uint, fields map[string]any) error
+	UpdateUploadedPages(ctx context.Context, bookID uint) error
 	Delete(ctx context.Context, id uint, userID uint) error
 	List(ctx context.Context, query store.ListQuery) ([]model.Book, int64, error)
 }
@@ -48,6 +49,11 @@ func (s *bookBiz) Update(ctx context.Context, book *model.Book) error {
 // UpdateFields updates specific fields of a book.
 func (s *bookBiz) UpdateFields(ctx context.Context, bookID uint, userID uint, fields map[string]any) error {
 	return s.repo.Book().UpdateFields(ctx, bookID, userID, fields)
+}
+
+// UpdateUploadedPages recalculates and updates the uploaded_pages count for a book.
+func (s *bookBiz) UpdateUploadedPages(ctx context.Context, bookID uint) error {
+	return s.repo.Book().UpdateUploadedPages(ctx, bookID)
 }
 
 // Delete deletes a book by ID and user ID.

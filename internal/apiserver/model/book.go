@@ -18,6 +18,9 @@ type Book struct {
 	Cover         string    `json:"cover" gorm:"size:500;comment:封面图片路径"`
 	CreatedAt     time.Time `json:"created_at" gorm:"comment:创建时间"`
 	UpdatedAt     time.Time `json:"updated_at" gorm:"comment:更新时间"`
+
+	// Associations
+	Images []BookImage `json:"images,omitempty" gorm:"foreignKey:BookID;constraint:OnDelete:CASCADE"`
 }
 
 // TableName returns the table name for Book.

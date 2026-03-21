@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { booksApi } from '@/features/library/api'
+import { booksApi, type BookImage } from '@/features/library/api'
 import { useToastStore } from '@/shared/stores/toast'
 import type { Book, BookStatus } from '@/features/library/types'
-import { BookOpen, Upload, Edit, Trash2 } from 'lucide-react'
+import { BookOpen, Upload, Edit, Trash2, ImageIcon } from 'lucide-react'
 import './BookDetailPage.css'
 
 const STATUS_LABELS: Record<BookStatus, string> = {
@@ -23,6 +23,9 @@ export default function BookDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [updating, setUpdating] = useState(false)
   const [editForm, setEditForm] = useState({ title: '', author: '', isbn: '', totalPages: 0 })
+  const [images, setImages] = useState<BookImage[]>([])
+  const [imagesLoading, setImagesLoading] = useState(false)
+  const [imagesTotal, setImagesTotal] = useState(0)
 
   useEffect(() => {
     if (!id) return
@@ -35,6 +38,26 @@ export default function BookDetailPage() {
       .catch(() => toast('error', '获取书籍详情失败'))
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    setImagesLoading(true)
+    booksApi.listImages(id)
+      .then(res => {
+        setImages(res.items)
+        setImagesTotal(res.total)
+      })
+      .catch(() => toast('error', '获取图片列表失败'))
+      .finally(() => setImagesLoading(false))
+  }, [id])
+
+  const getImageUrl = (img: BookImage) => {
+    const medium = img.variants.find(v => v.variant === 'medium')
+    const small = img.variants.find(v => v.variant === 'small')
+    const variant = medium || small
+    if (variant) return `/storages/${variant.filePath}`
+    return `/storages/${img.storagePath}`
+  }
 
   const goToUpload = () => {
     if (book) navigate(`/upload/${book.id}`)
@@ -150,6 +173,32 @@ export default function BookDetailPage() {
             </button>
           </div>
         </div>
+      </section>
+
+      {/* Images Grid */}
+      <section className="book-images-section">
+        <div className="section-header">
+          <h2>已上传图片 ({imagesTotal})</h2>
+        </div>
+        {imagesLoading ? (
+          <div className="images-loading">加载中...</div>
+        ) : images.length === 0 ? (
+          <div className="images-empty">
+            <ImageIcon size={48} />
+            <p>暂无图片，点击上方"上传照片"按钮开始上传</p>
+          </div>
+        ) : (
+          <div className="images-grid">
+            {images.map(img => (
+              <div key={img.id} className="image-card">
+                <div className="image-card-inner">
+                  <img src={getImageUrl(img)} alt={img.originalName} loading="lazy" />
+                </div>
+                <div className="image-card-name">{img.originalName}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Edit Modal */}

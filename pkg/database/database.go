@@ -84,8 +84,7 @@ func AutoMigrate(db Database) error {
 		&model.LoginHistory{},
 		&model.Image{},
 		&model.ImageVariant{},
-		&model.ImageGroup{},
-		&model.ImageGroupMember{},
+		&model.BookImage{},
 	}
 
 	for _, m := range models {

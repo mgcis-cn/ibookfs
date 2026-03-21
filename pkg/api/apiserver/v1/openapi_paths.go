@@ -581,7 +581,6 @@ func oapiImageFilePath() *openapi3.PathItem {
 			Parameters: openapi3.Parameters{
 				oapiPathParam("id", "Image ID"),
 				oapiQueryParam("variant", "Image variant (e.g. thumbnail)", openapi3.NewStringSchema()),
-				oapiQueryParam("token", "Access token for public/shared access", openapi3.NewStringSchema()),
 			},
 			Responses: openapi3.NewResponses(
 				openapi3.WithStatus(200, &openapi3.ResponseRef{

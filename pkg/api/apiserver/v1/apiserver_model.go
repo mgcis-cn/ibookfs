@@ -46,31 +46,9 @@ type DeleteImageResponse struct {
 type ServeImageRequest struct {
 	Id      int    `json:"id"`
 	Variant string `json:"variant"`
-	Token   string `json:"token"`
 }
 
 type ServeImageResponse struct{}
-
-type CreateGroupRequest struct {
-	GroupType string  `json:"group_type"`
-	GroupName string  `json:"group_name"`
-	RefID     *uint   `json:"ref_id"`
-	RefType   *string `json:"ref_type"`
-}
-
-type CreateGroupResponse struct {
-	Data    any    `json:"data"`
-	Message string `json:"message"`
-}
-
-type AddImagesToGroupRequest struct {
-	Id       int   `json:"id"`
-	ImageIds []int `json:"image_ids"`
-}
-
-type AddImagesToGroupResponse struct {
-	Message string `json:"message"`
-}
 
 type ListBooksRequest struct {
 	Page     int    `json:"page"`
@@ -126,6 +104,18 @@ type DeleteBookRequest struct {
 }
 
 type DeleteBookResponse struct {
+	Message string `json:"message"`
+}
+
+type ListBookImagesRequest struct {
+	Id       int `json:"id"`
+	Page     int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+
+type ListBookImagesResponse struct {
+	Data    any    `json:"data"`
+	Total   int64  `json:"total"`
 	Message string `json:"message"`
 }
 
