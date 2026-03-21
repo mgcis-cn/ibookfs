@@ -118,17 +118,25 @@ func (p *Processor) Validate(ctx context.Context, reader io.Reader, mimeType str
 		return nil, pkgerr.Wrap(err, "读取图片失败")
 	}
 
-	img, format, err := image.Decode(bytes.NewReader(buf.Bytes()))
+	data := buf.Bytes()
+
+	// Decode image to get raw dimensions and format
+	img, format, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, pkgerr.Wrap(err, "解码图片失败")
 	}
 
 	bounds := img.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+
+	// Read EXIF orientation from any format (JPEG, PNG eXIf chunk, etc.)
+	orient := readOrientationFromBytes(data)
+	w, h = orientedDimensions(w, h, orient)
 
 	return &ImageInfo{
 		Format:   format,
-		Width:    bounds.Dx(),
-		Height:   bounds.Dy(),
+		Width:    w,
+		Height:   h,
 		Size:     size,
 		MimeType: mimeType,
 	}, nil
@@ -163,12 +171,19 @@ func (p *Processor) GenerateBlurHash(imgPath string) (string, error) {
 
 // GenerateVariants creates resized variants of the source image.
 func (p *Processor) GenerateVariants(ctx context.Context, sourcePath string, outputDir string) ([]VariantResult, error) {
-	sourceImg, err := imaging.Open(sourcePath, imaging.AutoOrientation(true))
+	// Read EXIF orientation from any format (JPEG, PNG eXIf chunk, etc.)
+	orient := readOrientationFromFile(sourcePath)
+
+	// Open image without auto-orientation (we handle it ourselves)
+	sourceImg, err := imaging.Open(sourcePath)
 	if err != nil {
 		return nil, pkgerr.Wrap(err, "打开源图片失败")
 	}
 
-	bounds := sourceImg.Bounds()
+	// Apply EXIF orientation
+	orientedImg := fixImageOrientation(sourceImg, orient)
+
+	bounds := orientedImg.Bounds()
 	originalW := bounds.Dx()
 	originalH := bounds.Dy()
 
@@ -193,7 +208,7 @@ func (p *Processor) GenerateVariants(ctx context.Context, sourcePath string, out
 		}
 
 		// Resize image
-		resized := imaging.Resize(sourceImg, targetW, targetH, imaging.Lanczos)
+		resized := imaging.Resize(orientedImg, targetW, targetH, imaging.Lanczos)
 
 		// Save based on original format
 		if err := p.saveImage(resized, variantPath, ext); err != nil {
