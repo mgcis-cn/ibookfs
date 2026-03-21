@@ -193,9 +193,6 @@ func deleteImageHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func uploadImageHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) (err error) {
 		var in UploadImageRequest
-		if err := ctx.Bind(&in); err != nil {
-			return err
-		}
 		if err := ctx.BindQuery(&in); err != nil {
 			return err
 		}
@@ -335,6 +332,9 @@ func createBookHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 func updateBookHttpHandler(srv ApiServerHTTPServer) http.HandlerFunc {
 	return func(ctx http.Context) error {
 		var in UpdateBookRequest
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
 		if err := ctx.Bind(&in); err != nil {
 			return err
 		}

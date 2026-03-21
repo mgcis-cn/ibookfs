@@ -13,6 +13,7 @@ type BookBiz interface {
 	Create(ctx context.Context, book *model.Book) error
 	GetByID(ctx context.Context, id uint, userID uint) (*model.Book, error)
 	Update(ctx context.Context, book *model.Book) error
+	UpdateFields(ctx context.Context, bookID uint, userID uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint, userID uint) error
 	List(ctx context.Context, query store.ListQuery) ([]model.Book, int64, error)
 }
@@ -42,6 +43,11 @@ func (s *bookBiz) GetByID(ctx context.Context, id uint, userID uint) (*model.Boo
 // Update updates an existing book.
 func (s *bookBiz) Update(ctx context.Context, book *model.Book) error {
 	return s.repo.Book().Update(ctx, book)
+}
+
+// UpdateFields updates specific fields of a book.
+func (s *bookBiz) UpdateFields(ctx context.Context, bookID uint, userID uint, fields map[string]any) error {
+	return s.repo.Book().UpdateFields(ctx, bookID, userID, fields)
 }
 
 // Delete deletes a book by ID and user ID.

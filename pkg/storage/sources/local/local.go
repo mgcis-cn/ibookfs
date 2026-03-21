@@ -120,3 +120,8 @@ func (s *Storage) GetURL(path string) string {
 	}
 	return s.Endpoint + "/" + s.Bucket + "/" + path
 }
+
+// GetBasePath returns the base path (bucket) for local storage.
+func (s *Storage) GetBasePath() string {
+	return s.Bucket
+}

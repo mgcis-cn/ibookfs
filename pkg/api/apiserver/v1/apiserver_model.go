@@ -1,7 +1,5 @@
 package v1
 
-import "os"
-
 type HealthRequest struct {
 }
 
@@ -29,8 +27,7 @@ type GetImageResponse struct {
 }
 
 type UploadImageRequest struct {
-	GroupId int      `json:"group_id"`
-	File    *os.File `json:"-"`
+	BookId int `json:"book_id"`
 }
 
 type UploadImageResponse struct {
@@ -103,6 +100,7 @@ type CreateBookRequest struct {
 	ISBN      string `json:"isbn"`
 	Publisher string `json:"publisher"`
 	Year      int    `json:"year"`
+	Pages     int    `json:"pages"`
 }
 
 type CreateBookResponse struct {
@@ -111,12 +109,11 @@ type CreateBookResponse struct {
 }
 
 type UpdateBookRequest struct {
-	Id        int    `json:"id"`
-	Title     string `json:"title"`
-	Author    string `json:"author"`
-	ISBN      string `json:"isbn"`
-	Publisher string `json:"publisher"`
-	Year      int    `json:"year"`
+	Id     int    `json:"id"`
+	Title  string `json:"title"`
+	Author string `json:"author"`
+	ISBN   string `json:"isbn"`
+	Pages  int    `json:"pages"`
 }
 
 type UpdateBookResponse struct {

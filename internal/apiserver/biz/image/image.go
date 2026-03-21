@@ -65,7 +65,7 @@ type UploadRequest struct {
 	ContentType string
 	Reader      multipart.File
 	OwnerID     uint
-	GroupID     *uint
+	BookID      *uint
 }
 
 // UploadResponse contains the result of image upload.
@@ -151,6 +151,25 @@ func (s *imageBiz) Upload(ctx context.Context, req *UploadRequest) (*UploadRespo
 		// Cleanup file on database error
 		_ = s.storage.Delete(ctx, storagePath)
 		return nil, pkgerr.Wrap(err, "创建图片记录失败")
+	}
+
+	// Associate image with book's image group if BookID is provided
+	if req.BookID != nil {
+		// Get or create image group for the book
+		groupID, err := s.repo.Image().GetOrCreateBookImageGroup(ctx, *req.BookID, req.OwnerID)
+		if err != nil {
+			fmt.Printf("warning: failed to get/create image group for book %d: %v\n", *req.BookID, err)
+		} else {
+			if err := s.repo.Image().AddImagesToGroup(ctx, groupID, []uint{image.ID}); err != nil {
+				fmt.Printf("warning: failed to add image %d to group %d: %v\n", image.ID, groupID, err)
+			}
+		}
+
+		// Set book cover if empty (first uploaded image becomes cover)
+		coverURL := s.storage.GetURL(storagePath)
+		if err := s.repo.Book().SetCoverIfEmpty(ctx, *req.BookID, req.OwnerID, coverURL); err != nil {
+			fmt.Printf("warning: failed to set cover for book %d: %v\n", *req.BookID, err)
+		}
 	}
 
 	// Enqueue for async processing
@@ -326,10 +345,7 @@ func (s *imageBiz) AddImagesToGroup(ctx context.Context, groupID uint, imageIDs 
 
 // getStorageBasePath returns the base path for local storage.
 func (s *imageBiz) getStorageBasePath() string {
-	if local, ok := s.storage.(ssources.Storage); ok {
-		return local.GetURL("")
-	}
-	return ""
+	return s.storage.GetBasePath()
 }
 
 // generateRandomFilename generates a random filename with the given extension.

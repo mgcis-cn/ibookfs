@@ -13,8 +13,10 @@ type IBookStore interface {
 	Create(ctx context.Context, book *model.Book) error
 	GetByID(ctx context.Context, id uint, userID uint) (*model.Book, error)
 	Update(ctx context.Context, book *model.Book) error
+	UpdateFields(ctx context.Context, bookID uint, userID uint, fields map[string]any) error
 	Delete(ctx context.Context, id uint, userID uint) error
 	List(ctx context.Context, query ListQuery) ([]model.Book, int64, error)
+	SetCoverIfEmpty(ctx context.Context, bookID uint, userID uint, coverURL string) error
 }
 
 // BookStore handles book data operations.
@@ -45,6 +47,13 @@ func (r *BookStore) GetByID(ctx context.Context, id uint, userID uint) (*model.B
 // Update updates an existing book.
 func (r *BookStore) Update(ctx context.Context, book *model.Book) error {
 	return r.db.Conn(ctx).Save(book).Error
+}
+
+// UpdateFields updates specific fields of a book.
+func (r *BookStore) UpdateFields(ctx context.Context, bookID uint, userID uint, fields map[string]any) error {
+	return r.db.Conn(ctx).Model(&model.Book{}).
+		Where("id = ? AND user_id = ?", bookID, userID).
+		Updates(fields).Error
 }
 
 // Delete deletes a book by ID and user ID.
@@ -91,4 +100,11 @@ func (r *BookStore) List(ctx context.Context, query ListQuery) ([]model.Book, in
 	}
 
 	return books, total, nil
+}
+
+// SetCoverIfEmpty sets the book cover if it's currently empty.
+func (r *BookStore) SetCoverIfEmpty(ctx context.Context, bookID uint, userID uint, coverURL string) error {
+	return r.db.Conn(ctx).Model(&model.Book{}).
+		Where("id = ? AND user_id = ? AND (cover = '' OR cover IS NULL)", bookID, userID).
+		Update("cover", coverURL).Error
 }

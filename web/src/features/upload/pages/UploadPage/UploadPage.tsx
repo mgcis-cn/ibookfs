@@ -52,15 +52,18 @@ export default function UploadPage() {
 
   const addFiles = (files: File[]) => {
     const imageFiles = files.filter(f => f.type.startsWith('image/'))
-    const newPhotos: UploadPhoto[] = imageFiles.map(file => ({
+    
+    const newPhotos: UploadPhoto[] = imageFiles.map((file, index) => ({
       id: `upload-${Date.now()}-${Math.random()}`,
       file,
       preview: URL.createObjectURL(file),
-      page: uploadPhotos.length + 1,
+      page: uploadPhotos.length + index + 1,
       status: 'pending',
       progress: 0,
     }))
+    
     setUploadPhotos(prev => [...prev, ...newPhotos])
+    
     if (imageFiles.length < files.length) toast('warning', `${files.length - imageFiles.length} 个非图片文件已被忽略`)
     if (imageFiles.length > 0) {
       toast('success', `已添加 ${imageFiles.length} 张照片`)
@@ -101,17 +104,40 @@ export default function UploadPage() {
     setUploadStatus('准备上传...')
     try {
       const total = uploadPhotos.length
-      const interval = setInterval(() => {
-        setUploadProgress(p => { if (p < 90) return p + Math.random() * 10; return p })
-        setUploadStatus(`上传中... ${Math.round(uploadProgress)}%`)
-      }, 200)
-      await new Promise(r => setTimeout(r, 2000))
-      clearInterval(interval)
-      setUploadProgress(100)
+      let successCount = 0
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+      const token = localStorage.getItem('authToken')
+      const headers: HeadersInit = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      for (let i = 0; i < total; i++) {
+        const photo = uploadPhotos[i]
+        if (!photo) continue
+        setUploadStatus(`正在上传第 ${i + 1}/${total} 张照片...`)
+
+        const formData = new FormData()
+        formData.append('file', photo.file)
+
+        const res = await fetch(`${API_BASE_URL}/images?book_id=${bookId}`, {
+          method: 'POST',
+          headers,
+          body: formData
+        })
+
+        if (!res.ok) {
+          throw new Error(`Upload failed for ${photo.file.name}`)
+        }
+
+        successCount++
+        setUploadProgress(Math.round((successCount / total) * 100))
+        setUploadPhotos(prev => prev.map(p => p.id === photo.id ? { ...p, status: 'done', progress: 100 } : p))
+      }
+
       setUploadStatus('上传完成！')
-      toast('success', `成功上传 ${total} 张照片`)
+      toast('success', `成功上传 ${successCount} 张照片`)
       setTimeout(() => navigate(`/book/${bookId}`), 1000)
-    } catch {
+    } catch (error) {
+      console.error('Upload Error:', error)
       toast('error', '上传失败，请重试')
     } finally {
       setUploading(false)

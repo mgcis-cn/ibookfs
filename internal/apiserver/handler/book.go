@@ -73,6 +73,7 @@ func (h *handler) CreateBook(ctx context.Context, req *v1.CreateBookRequest) (*v
 		ISBN:      req.ISBN,
 		Publisher: req.Publisher,
 		Year:      req.Year,
+		Pages:     req.Pages,
 		UserID:    userID,
 	}
 
@@ -87,25 +88,31 @@ func (h *handler) CreateBook(ctx context.Context, req *v1.CreateBookRequest) (*v
 }
 
 // UpdateBook updates an existing book.
+// Only updates: title, author, isbn, pages (totalPages)
 func (h *handler) UpdateBook(ctx context.Context, req *v1.UpdateBookRequest) (*v1.UpdateBookResponse, error) {
 	userID := uint(contextx.UserId(ctx))
+	bookID := uint(req.Id)
 
-	data := &model.Book{
-		Title:     req.Title,
-		Author:    req.Author,
-		ISBN:      req.ISBN,
-		Publisher: req.Publisher,
-		Year:      req.Year,
+	// Build fields map with only allowed fields
+	fields := map[string]any{
+		"title":  req.Title,
+		"author": req.Author,
+		"isbn":   req.ISBN,
+		"pages":  req.Pages,
 	}
-	data.ID = uint(req.Id)
-	data.UserID = userID
 
-	if err := h.biz.Book().Update(ctx, data); err != nil {
+	if err := h.biz.Book().UpdateFields(ctx, bookID, userID, fields); err != nil {
+		return &v1.UpdateBookResponse{}, err
+	}
+
+	// Fetch updated book to return
+	book, err := h.biz.Book().GetByID(ctx, bookID, userID)
+	if err != nil {
 		return &v1.UpdateBookResponse{}, err
 	}
 
 	return &v1.UpdateBookResponse{
-		Data:    data,
+		Data:    book,
 		Message: "success",
 	}, nil
 }

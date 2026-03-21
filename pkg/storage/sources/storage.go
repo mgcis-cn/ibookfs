@@ -53,6 +53,10 @@ type Storage interface {
 	// For private storage, this should return a signed URL.
 	GetURL(path string) string
 
+	// GetBasePath returns the base path for local storage.
+	// For cloud storage, this returns an empty string.
+	GetBasePath() string
+
 	// Kind returns the storage type identifier.
 	Kind() Kind
 }

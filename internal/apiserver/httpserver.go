@@ -102,5 +102,12 @@ func (c *ServerConfig) NewHTTPServer() *http.Server {
 		return nil
 	})
 
+	// Serve static files from storage path
+	if c.storagePath != "" {
+		fileServer := nethttp.FileServer(nethttp.Dir(c.storagePath))
+		// Handle paths like /storages/images/...
+		srv.HandlePrefix("/storages/", nethttp.StripPrefix("/storages/", fileServer))
+	}
+
 	return srv
 }

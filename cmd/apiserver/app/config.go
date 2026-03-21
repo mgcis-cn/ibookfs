@@ -103,7 +103,7 @@ server:
     timeout: 2h
   image:
     processing:
-      blurhash_enabled: false
+      blurhash_enabled: true
       variants:
         - name: small
           max_width: 400

@@ -33,6 +33,7 @@ type ServerConfig struct {
 	cfg         *Config
 	handler     v1.ApiServerHTTPServer
 	middlewares []middleware.Middleware
+	storagePath string // Base path for static file serving
 }
 
 // NewServerConfig creates a new ServerConfig from options.
@@ -95,11 +96,13 @@ func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
 
 	// Handler and HTTP server
 	server.handler = handler.New(oauthF, b)
+	server.storagePath = oss.GetBasePath()
 	server.middlewares = mw.NewMiddlewares(&mw.Config{
 		SkipAuthPaths: []string{
 			"/health",
 			"/swagger",
 			"/openapi.json",
+			"/storages/",
 			"/api/v1/auth/send-code",
 			"/api/v1/auth/login",
 			"/api/v1/auth/register",

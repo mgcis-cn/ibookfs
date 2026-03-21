@@ -24,24 +24,20 @@ type ImageRouter interface {
 
 // UploadImage handles image upload requests.
 func (h *handler) UploadImage(ctx context.Context, req *v1.UploadImageRequest) (*v1.UploadImageResponse, error) {
-	// Get file from form
-	if req.File == nil {
-		return &v1.UploadImageResponse{}, apierr.ErrImageFileRequired
-	}
-
+	// Get file from multipart form
 	request := contextx.Request(ctx)
 	file, handler, err := request.FormFile("file")
 	if err != nil {
-		return &v1.UploadImageResponse{}, err
+		return &v1.UploadImageResponse{}, apierr.ErrImageFileRequired
 	}
 	defer func() {
 		_ = file.Close()
 	}()
 
-	var groupId *uint
-	if req.GroupId > 0 {
-		gid := uint(req.GroupId)
-		groupId = &gid
+	var bookId *uint
+	if req.BookId > 0 {
+		bid := uint(req.BookId)
+		bookId = &bid
 	}
 	ownerId := uint(contextx.UserId(ctx))
 	data := &image.UploadRequest{
@@ -50,7 +46,7 @@ func (h *handler) UploadImage(ctx context.Context, req *v1.UploadImageRequest) (
 		ContentType: handler.Header.Get("Content-Type"),
 		Reader:      file,
 		OwnerID:     ownerId,
-		GroupID:     groupId,
+		BookID:      bookId,
 	}
 
 	result, err := h.biz.Image().Upload(ctx, data)

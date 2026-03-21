@@ -21,6 +21,7 @@ type IImageStore interface {
 	CreateGroup(ctx context.Context, group *model.ImageGroup) error
 	GetGroupByID(ctx context.Context, id uint) (*model.ImageGroup, error)
 	GetGroupByOwnerAndRef(ctx context.Context, ownerID uint, groupType model.ImageGroupType, refID uint, refType string) (*model.ImageGroup, error)
+	GetOrCreateBookImageGroup(ctx context.Context, bookID uint, ownerID uint) (uint, error)
 	AddImagesToGroup(ctx context.Context, groupID uint, imageIDs []uint) error
 	RemoveImageFromGroup(ctx context.Context, groupID uint, imageID uint) error
 }
@@ -179,6 +180,30 @@ func (r *ImageStore) RemoveImageFromGroup(ctx context.Context, groupID uint, ima
 	return r.db.Conn(ctx).
 		Where("group_id = ? AND image_id = ?", groupID, imageID).
 		Delete(&model.ImageGroupMember{}).Error
+}
+
+// GetOrCreateBookImageGroup gets or creates an image group for a book.
+// Returns the group ID.
+func (r *ImageStore) GetOrCreateBookImageGroup(ctx context.Context, bookID uint, ownerID uint) (uint, error) {
+	refType := "book"
+	// Try to find existing group
+	group, err := r.GetGroupByOwnerAndRef(ctx, ownerID, model.GroupTypeBook, bookID, refType)
+	if err == nil {
+		return group.ID, nil
+	}
+
+	// Create new group
+	newGroup := &model.ImageGroup{
+		OwnerID:   ownerID,
+		GroupType: model.GroupTypeBook,
+		GroupName: "",
+		RefID:     &bookID,
+		RefType:   &refType,
+	}
+	if err := r.CreateGroup(ctx, newGroup); err != nil {
+		return 0, err
+	}
+	return newGroup.ID, nil
 }
 
 // isDuplicateKeyError checks if an error is a duplicate key error.
