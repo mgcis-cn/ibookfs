@@ -163,7 +163,7 @@ func (p *Processor) GenerateBlurHash(imgPath string) (string, error) {
 
 // GenerateVariants creates resized variants of the source image.
 func (p *Processor) GenerateVariants(ctx context.Context, sourcePath string, outputDir string) ([]VariantResult, error) {
-	sourceImg, err := imaging.Open(sourcePath)
+	sourceImg, err := imaging.Open(sourcePath, imaging.AutoOrientation(true))
 	if err != nil {
 		return nil, pkgerr.Wrap(err, "打开源图片失败")
 	}
@@ -272,7 +272,7 @@ func (p *Processor) calculateDimensions(originalW, originalH, maxWidth, maxHeigh
 }
 
 // saveImage saves an image to disk in the specified format.
-func (p *Processor) saveImage(img *image.NRGBA, path, ext string) error {
+func (p *Processor) saveImage(img image.Image, path, ext string) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return err

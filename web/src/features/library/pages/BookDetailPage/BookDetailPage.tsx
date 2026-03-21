@@ -189,14 +189,17 @@ export default function BookDetailPage() {
           </div>
         ) : (
           <div className="images-grid">
-            {images.map(img => (
-              <div key={img.id} className="image-card">
-                <div className="image-card-inner">
-                  <img src={getImageUrl(img)} alt={img.originalName} loading="lazy" />
+            {images.map(img => {
+              const isLandscape = img.width > img.height
+              return (
+                <div key={img.id} className={`image-card ${isLandscape ? 'image-card--landscape' : 'image-card--portrait'}`}>
+                  <div className="image-card-inner">
+                    <img src={getImageUrl(img)} alt={img.originalName} loading="lazy" />
+                  </div>
+                  <div className="image-card-name">{img.originalName}</div>
                 </div>
-                <div className="image-card-name">{img.originalName}</div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>

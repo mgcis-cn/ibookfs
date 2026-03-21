@@ -256,9 +256,20 @@
 }
 
 .image-card-inner {
-  aspect-ratio: 3 / 4;
   overflow: hidden;
   background: var(--bg-secondary);
+}
+
+.image-card--portrait .image-card-inner {
+  aspect-ratio: 3 / 4;
+}
+
+.image-card--landscape {
+  grid-column: span 2;
+}
+
+.image-card--landscape .image-card-inner {
+  aspect-ratio: 4 / 3;
 }
 
 .image-card-inner img {
