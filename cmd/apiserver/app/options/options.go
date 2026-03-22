@@ -51,9 +51,10 @@ func NewServerRunOptions() *ServerRunOptions {
 	return &ServerRunOptions{
 		App: &AppOptions{},
 		Server: &ServerOptions{
-			HTTP:   options.NewHttpOptions(),
-			Image:  options.NewImageOptions(),
-			Upload: options.NewUploadOptions(),
+			HTTP:       options.NewHttpOptions(),
+			Image:      options.NewImageOptions(),
+			Upload:     options.NewUploadOptions(),
+			Middleware: options.NewMiddlewareOptions(),
 		},
 		Data: &DataOptions{
 			Database: []*DatabaseOptions{
@@ -99,9 +100,10 @@ func (o *AppOptions) AddFlags(fs *pflag.FlagSet) {
 }
 
 type ServerOptions struct {
-	HTTP   *options.HttpOptions   `json:"http" yaml:"http" mapstructure:"http"`
-	Image  *options.ImageOptions  `json:"image" yaml:"image" mapstructure:"image"`
-	Upload *options.UploadOptions `json:"upload" yaml:"upload" mapstructure:"upload"`
+	HTTP       *options.HttpOptions       `json:"http" yaml:"http" mapstructure:"http"`
+	Image      *options.ImageOptions      `json:"image" yaml:"image" mapstructure:"image"`
+	Upload     *options.UploadOptions     `json:"upload" yaml:"upload" mapstructure:"upload"`
+	Middleware *options.MiddlewareOptions `json:"middleware" yaml:"middleware" mapstructure:"middleware"`
 }
 
 func (o *ServerOptions) AddFlags(fs *pflag.FlagSet) {

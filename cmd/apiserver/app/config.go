@@ -120,6 +120,22 @@ server:
       - image/webp
       - application/pdf
       - application/epub+zip
+  middleware:
+    allowed_origins:
+      - "http://localhost:3000"
+      - "https://ibookfs.mgcis.cn"
+    allowed_paths:
+      - "/health"
+      - "/swagger"
+      - "/openapi.json"
+      - "/storages/"
+      - "/api/v1/auth/send-code"
+      - "/api/v1/auth/login"
+      - "/api/v1/auth/register"
+      - "/api/v1/auth/oauth/authorize"
+      - "/api/v1/auth/oauth/callback"
+      - "/api/v1/auth/refresh"
+      - "/api/v1/auth/config"
 
 data:
   database:

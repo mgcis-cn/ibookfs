@@ -98,19 +98,7 @@ func New(server *ServerConfig) (app *kratos.App, cleanup func(), err error) {
 	server.handler = handler.New(oauthF, b)
 	server.storagePath = oss.GetBasePath()
 	server.middlewares = mw.NewMiddlewares(&mw.Config{
-		SkipAuthPaths: []string{
-			"/health",
-			"/swagger",
-			"/openapi.json",
-			"/storages/",
-			"/api/v1/auth/send-code",
-			"/api/v1/auth/login",
-			"/api/v1/auth/register",
-			"/api/v1/auth/oauth/authorize",
-			"/api/v1/auth/oauth/callback",
-			"/api/v1/auth/refresh",
-			"/api/v1/auth/config",
-		},
+		SkipAuthPaths: opts.Server.Middleware.AllowedPaths,
 		JWTManager: jwt.New(
 			jwt.WithSigningKey([]byte(opts.Auth.JWT.Secret)),
 			jwt.WithExpired(opts.Auth.JWT.Expired.Duration),
