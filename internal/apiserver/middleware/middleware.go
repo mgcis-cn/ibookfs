@@ -14,13 +14,17 @@ type Config struct {
 	JWTManager           *jwt.Auth
 	AccountSecretService accountsecret.AccountSecretBiz
 	Logger               log.Logger
+	RateLimit            *RateLimitConfig
 }
 
 // NewMiddlewares creates middleware chain for Kratos server.
 func NewMiddlewares(cfg *Config) []middleware.Middleware {
 	var middlewares []middleware.Middleware
 
-	// Logging middleware (first in chain to capture all requests)
+	// BBR adaptive rate limiting (first in chain to reject overloaded requests early)
+	middlewares = append(middlewares, RateLimit(cfg.RateLimit))
+
+	// Logging middleware
 	if cfg.Logger != nil {
 		middlewares = append(middlewares, Logging(cfg.Logger))
 	}
